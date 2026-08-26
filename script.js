@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'view-inspection': 'Inspection Station',
         'view-traceability': 'Traceability Search',
         'view-defect': 'Defect Management',
-        'view-cycle-timer': 'Cycle Timer',
         'view-export': 'Export Data'
     };
 
@@ -282,29 +281,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================
-    // INSPECTION
+    // INSPECTION — Sequential Scanning Workflow + Embedded Timer
     // ============================================================
     const selectVariant = document.getElementById('select-variant');
     const btnScan = document.getElementById('btn-scan');
     const nikInput = document.getElementById('nik-input');
     const inspectionForm = document.getElementById('inspection-form-container');
-    const inspectionTbody = document.getElementById('inspection-items-tbody');
     const btnCancelInspection = document.getElementById('btn-cancel-inspection');
     const btnSubmitInspection = document.getElementById('btn-submit-inspection');
     const displayNik = document.getElementById('display-nik');
     const displayVariant = document.getElementById('display-variant');
     const displayPos = document.getElementById('display-pos');
-    const componentDataContainer = document.getElementById('component-data-container');
+    const componentScanList = document.getElementById('component-scan-list');
+    const scanProgressBadge = document.getElementById('scan-progress-badge');
+    const btnAddDefectNote = document.getElementById('btn-add-defect-note');
 
-    function updateStepIndicator(step) {
-        const steps = document.querySelectorAll('#step-indicator .step');
-        steps.forEach((s, i) => {
-            s.classList.remove('active', 'completed');
-            if (i + 1 < step) s.classList.add('completed');
-            else if (i + 1 === step) s.classList.add('active');
-        });
-    }
+    let componentScannedCount = 0;
+    let componentTotalCount = 0;
+    let defectNoteCounter = 1;
 
+    // Enable NIK input when variant is selected
     function checkContextSelection() {
         if (selectVariant && nikInput && btnScan) {
             if (selectVariant.value !== '') {
@@ -313,74 +309,162 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnScan.disabled = false;
                 btnScan.style.opacity = '1';
                 btnScan.style.cursor = 'pointer';
-                updateStepIndicator(2);
+                const stepNum = document.getElementById('step-nik-num');
+                if (stepNum) { stepNum.style.background = 'var(--gradient-primary)'; stepNum.style.color = 'white'; }
             } else {
                 nikInput.disabled = true;
                 nikInput.title = 'Pilih Variant terlebih dahulu';
                 btnScan.disabled = true;
                 btnScan.style.opacity = '0.4';
                 btnScan.style.cursor = 'not-allowed';
-                updateStepIndicator(1);
             }
         }
     }
 
     if (selectVariant) selectVariant.addEventListener('change', checkContextSelection);
 
-    function renderChecklist(pos) {
-        let mockChecklist = [
-            { code: 'CHK-01', desc: 'Visual Check Panel A' },
-            { code: 'CHK-02', desc: 'Torque Check Bolt M6' }
-        ];
+    // Update Inspection Station badge info
+    function updateInsBadges() {
+        const bp = document.getElementById('ins-badge-pos');
+        const bs = document.getElementById('ins-badge-shift');
+        const bg = document.getElementById('ins-badge-group');
+        if (bp) bp.textContent = window.activeWorkstation || '-';
+        if (bs) bs.textContent = window.activeShift || '-';
+        if (bg) bg.textContent = window.activeGroup || '-';
+    }
 
-        if (pos === 'Stage 13') {
-            mockChecklist.push({ code: 'CHK-03', desc: 'Label Placement' });
-            mockChecklist.push({ code: 'CHK-04', desc: 'Engine Pairing Check' });
-        } else {
-            mockChecklist.push({ code: 'CHK-03', desc: 'Connector Tightness' });
+    // Generate component scan inputs based on variant + stage
+    function renderComponentScanInputs(pos) {
+        let masterComps = [];
+        try {
+            const storedComps = localStorage.getItem('masterComponents');
+            if (storedComps) masterComps = JSON.parse(storedComps);
+        } catch(e) {}
+        if (masterComps.length === 0) {
+            masterComps = [
+                { id: 1, code: 'COMP-001', name: 'Engine Assembly', stage: 'Stage 13', active: true },
+                { id: 2, code: 'COMP-002', name: 'Battery Pack', stage: 'Stage 5', active: true },
+                { id: 3, code: 'COMP-003', name: 'Wiring Harness', stage: 'Stage 13', active: true },
+                { id: 4, code: 'COMP-004', name: 'ECU Module', stage: 'Stage 13', active: true }
+            ];
         }
 
-        inspectionTbody.innerHTML = '';
-        mockChecklist.forEach((item, index) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><span class="tag">${item.code}</span></td>
-                <td>${item.desc}</td>
-                <td>
-                    <div class="btn-group">
-                        <button type="button" class="btn-toggle pass" data-index="${index}">PASS</button>
-                        <button type="button" class="btn-toggle fail" data-index="${index}">FAIL</button>
+        const stageComps = masterComps.filter(c => c.active && (c.stage === pos || pos === 'Unknown POS'));
+        componentTotalCount = stageComps.length;
+        componentScannedCount = 0;
+        updateScanProgress();
+
+        if (!componentScanList) return;
+        componentScanList.innerHTML = '';
+
+        stageComps.forEach((comp, idx) => {
+            const stepNum = idx + 1;
+            const card = document.createElement('div');
+            card.className = 'glass-panel component-scan-card';
+            card.id = `comp-card-${comp.id}`;
+            card.style.cssText = 'padding: 16px 24px; margin-bottom: 8px; transition: all 0.3s ease; border-left: 3px solid rgba(255,255,255,0.06);';
+            card.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="comp-step-num" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;">${stepNum}</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">${comp.name} <span style="color: var(--text-muted); font-weight: 400;">(${comp.code})</span></div>
+                        <input type="text" class="comp-scan-input" id="comp-${comp.id}" data-comp-id="${comp.id}" data-index="${idx}" placeholder="Scan ${comp.name} barcode..." style="font-size: 14px; padding: 10px 14px;">
                     </div>
-                </td>
-                <td>
-                    <input type="text" class="defect-input" id="defect-input-${index}" placeholder="Describe defect...">
-                </td>
+                    <div class="comp-check-icon" style="font-size: 18px; color: var(--text-muted);">
+                        <i class="fa-regular fa-circle"></i>
+                    </div>
+                </div>
             `;
-            inspectionTbody.appendChild(tr);
+            componentScanList.appendChild(card);
         });
 
-        // Toggle listeners
-        inspectionTbody.querySelectorAll('.btn-toggle').forEach(toggle => {
-            toggle.addEventListener('click', function () {
-                const isPass = this.classList.contains('pass');
-                const idx = this.getAttribute('data-index');
-                const parentGroup = this.closest('.btn-group');
-                const defectInput = document.getElementById(`defect-input-${idx}`);
-
-                parentGroup.querySelectorAll('.btn-toggle').forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-
-                if (!isPass) {
-                    defectInput.classList.add('active');
-                    defectInput.focus();
-                } else {
-                    defectInput.classList.remove('active');
-                    defectInput.value = '';
+        // Wire up auto-advance and completion tracking
+        const compInputs = componentScanList.querySelectorAll('.comp-scan-input');
+        compInputs.forEach((input, idx) => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (input.value.trim() !== '') {
+                        markComponentScanned(input, idx);
+                        if (idx < compInputs.length - 1) {
+                            compInputs[idx + 1].focus();
+                        } else {
+                            // Last component scanned — auto-stop timer
+                            stopInsTimerAuto();
+                        }
+                    }
+                }
+            });
+            input.addEventListener('blur', () => {
+                if (input.value.trim() !== '' && !input.dataset.scanned) {
+                    markComponentScanned(input, idx);
+                    checkAllComponentsScanned();
                 }
             });
         });
+
+        // Auto-focus first input
+        setTimeout(() => compInputs[0]?.focus(), 100);
     }
 
+    function markComponentScanned(input, idx) {
+        if (input.dataset.scanned) return;
+        input.dataset.scanned = 'true';
+        componentScannedCount++;
+        updateScanProgress();
+
+        const card = input.closest('.component-scan-card');
+        if (card) {
+            card.style.borderLeftColor = 'var(--accent-green)';
+            const icon = card.querySelector('.comp-check-icon');
+            if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>';
+            const stepNum = card.querySelector('.comp-step-num');
+            if (stepNum) { stepNum.style.background = 'rgba(34, 197, 94, 0.15)'; stepNum.style.color = 'var(--accent-green)'; }
+        }
+    }
+
+    function updateScanProgress() {
+        if (scanProgressBadge) {
+            scanProgressBadge.textContent = `${componentScannedCount} / ${componentTotalCount} Scanned`;
+            if (componentScannedCount === componentTotalCount && componentTotalCount > 0) {
+                scanProgressBadge.className = 'status-badge success';
+            } else {
+                scanProgressBadge.className = 'status-badge warning';
+            }
+        }
+    }
+
+    function checkAllComponentsScanned() {
+        if (componentScannedCount >= componentTotalCount && componentTotalCount > 0) {
+            stopInsTimerAuto();
+        }
+    }
+
+    // Add Defect Note button
+    if (btnAddDefectNote) {
+        btnAddDefectNote.addEventListener('click', () => {
+            defectNoteCounter++;
+            const container = document.getElementById('defect-notes-container');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'defect-note-row';
+            row.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start;';
+            row.innerHTML = `
+                <textarea id="defect-note-${defectNoteCounter}" placeholder="Describe defect..." style="flex: 1; min-height: 60px;"></textarea>
+                <select id="defect-status-${defectNoteCounter}" style="width: 130px; padding: 11px 14px;">
+                    <option value="OPEN">OPEN</option>
+                    <option value="CLOSED">CLOSED</option>
+                </select>
+                <button type="button" class="btn-ghost" style="width: auto; padding: 10px 12px; color: var(--accent-red);" onclick="this.closest('.defect-note-row').remove()">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(row);
+            row.querySelector('textarea').focus();
+        });
+    }
+
+    // Scan NIK Button — starts timer + shows component scanning area
     if (btnScan) {
         btnScan.addEventListener('click', () => {
             if (nikInput.value.trim() !== '') {
@@ -389,28 +473,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (displayVariant) displayVariant.textContent = selectVariant.value;
                 if (displayPos) displayPos.textContent = pos;
 
-                // Component Data for Stage 13
-                if (pos === 'Stage 13') {
-                    componentDataContainer.style.display = 'block';
-                    componentDataContainer.innerHTML = `
-                        <div class="glass-panel" style="padding: 22px; border-left: 3px solid var(--accent-amber);">
-                            <h3 style="margin-bottom: 14px; font-size: 13px; font-weight: 700;">
-                                <i class="fa-solid fa-gears"></i> Traceability Part Input
-                            </h3>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="engine-no">Engine Number</label>
-                                <input type="text" id="engine-no" placeholder="Scan Engine Barcode" required style="font-size: 15px; padding: 13px;">
-                            </div>
+                // Show component scanning area
+                inspectionForm.style.display = 'block';
+                renderComponentScanInputs(pos);
+
+                // Reset defect notes
+                defectNoteCounter = 1;
+                const dnContainer = document.getElementById('defect-notes-container');
+                if (dnContainer) {
+                    dnContainer.innerHTML = `
+                        <div class="defect-note-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start;">
+                            <textarea id="defect-note-1" placeholder="Describe defect... (e.g., Baut longgar pada bracket A)" style="flex: 1; min-height: 60px;"></textarea>
+                            <select id="defect-status-1" style="width: 130px; padding: 11px 14px;">
+                                <option value="OPEN">OPEN</option>
+                                <option value="CLOSED">CLOSED</option>
+                            </select>
                         </div>
                     `;
-                } else {
-                    componentDataContainer.style.display = 'none';
-                    componentDataContainer.innerHTML = '';
                 }
 
-                inspectionForm.style.display = 'block';
-                renderChecklist(pos);
-                updateStepIndicator(3);
+                // AUTO-START cycle timer
+                startInsTimer();
+
+                showToast('info', 'Timer Started', `Scanning started for ${nikInput.value.trim()} — timer is running`);
             } else {
                 showToast('warning', 'Invalid Input', 'Please enter a valid NIK');
             }
@@ -425,41 +510,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnCancelInspection) {
         btnCancelInspection.addEventListener('click', () => {
+            stopInsTimerReset();
             inspectionForm.style.display = 'none';
             nikInput.value = '';
             if (displayNik) displayNik.textContent = '-';
-            updateStepIndicator(2);
+            if (displayVariant) displayVariant.textContent = '-';
+            if (displayPos) displayPos.textContent = '-';
         });
     }
 
     if (btnSubmitInspection) {
         btnSubmitInspection.addEventListener('click', () => {
-            // Validate engine number for Stage 13
-            if (window.activeWorkstation === 'Stage 13') {
-                const engineInput = document.getElementById('engine-no');
-                if (!engineInput || engineInput.value.trim() === '') {
-                    showToast('warning', 'Missing Data', 'Please enter the Engine Number before submitting.');
+            // Validate all component inputs
+            const compInputs = document.querySelectorAll('#component-scan-list .comp-scan-input');
+            for (let i = 0; i < compInputs.length; i++) {
+                if (compInputs[i].value.trim() === '') {
+                    showToast('warning', 'Missing Scan', `Please scan all components before submitting.`);
+                    compInputs[i].focus();
                     return;
                 }
             }
 
-            // Validate all checklist items
-            const groups = document.querySelectorAll('.inspection-table .btn-group');
-            let allChecked = true;
-            groups.forEach(group => {
-                if (!group.querySelector('.active')) allChecked = false;
+            // Stop timer if still running
+            stopInsTimerAuto();
+
+            // Collect defect notes
+            const defectRows = document.querySelectorAll('.defect-note-row');
+            let defectsCollected = [];
+            defectRows.forEach(row => {
+                const textarea = row.querySelector('textarea');
+                const statusSel = row.querySelector('select');
+                if (textarea && textarea.value.trim() !== '') {
+                    defectsCollected.push({
+                        desc: textarea.value.trim(),
+                        status: statusSel ? statusSel.value : 'OPEN'
+                    });
+                }
             });
 
-            if (!allChecked) {
-                showToast('warning', 'Incomplete', 'Please complete all inspection items before submitting.');
-                return;
+            // Add collected defects to the defect management list
+            if (defectsCollected.length > 0) {
+                defectsCollected.forEach(d => {
+                    const newId = `DEF-${String(defects.length + 1).padStart(3, '0')}`;
+                    defects.push({
+                        id: newId,
+                        nik: nikInput.value.trim(),
+                        desc: d.desc,
+                        category: 'Inspector Note',
+                        pos: window.activeWorkstation || '-',
+                        shift: window.activeShift || '-',
+                        group: window.activeGroup || '-',
+                        status: d.status
+                    });
+                });
+                showToast('warning', `${defectsCollected.length} Defect(s) Recorded`, `Unit ${nikInput.value.trim()} has ${defectsCollected.length} defect note(s).`);
+            } else {
+                showToast('success', 'No Defect', `Unit ${nikInput.value.trim()} — no defect found. Direct Run candidate.`);
             }
 
-            showToast('success', 'Inspection Submitted', `Unit ${nikInput.value} inspection completed successfully.`);
+            // Save cycle time record
+            const cycleRecord = {
+                nik: nikInput.value.trim(),
+                variant: selectVariant.value,
+                pos: window.activeWorkstation || '-',
+                shift: window.activeShift || '-',
+                group: window.activeGroup || '-',
+                inspector: window.activeUser || '-',
+                startTime: insTimerStartTime ? insTimerStartTime.toLocaleTimeString('en-US', {hour12:false}) : '-',
+                endTime: new Date().toLocaleTimeString('en-US', {hour12:false}),
+                cycleSec: insTimerSeconds,
+                pauseSec: insPauseDuration,
+                status: insTimerSeconds <= TAKT_TIME ? 'OK' : 'OVER',
+                date: new Date().toLocaleDateString('en-CA')
+            };
+            let cycleRecords = [];
+            try { cycleRecords = JSON.parse(localStorage.getItem('cycleRecords') || '[]'); } catch(e) {}
+            cycleRecords.push(cycleRecord);
+            localStorage.setItem('cycleRecords', JSON.stringify(cycleRecords));
+
+            showToast('success', 'Inspection Submitted', `Unit ${nikInput.value.trim()} — cycle: ${insTimerSeconds}s, components: ${componentScannedCount}/${componentTotalCount}`);
+
+            // Reset form
+            stopInsTimerReset();
             inspectionForm.style.display = 'none';
             nikInput.value = '';
             if (displayNik) displayNik.textContent = '-';
-            updateStepIndicator(2);
+            if (displayVariant) displayVariant.textContent = '-';
+            if (displayPos) displayPos.textContent = '-';
+            nikInput.focus();
         });
     }
 
@@ -571,19 +709,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================
-    // CYCLE TIMER
+    // EMBEDDED CYCLE TIMER (in Inspection view)
     // ============================================================
-    let timerInterval = null;
-    let timerSeconds = 0;
-    let timerRunning = false;
     const TAKT_TIME = 180; // seconds
+    let insTimerInterval = null;
+    let insTimerSeconds = 0;
+    let insTimerRunning = false;
+    let insTimerStartTime = null;
+    let insPauseStart = null;
+    let insPauseDuration = 0;
 
-    const timerDisplay = document.getElementById('timer-display');
-    const btnStart = document.getElementById('btn-timer-start');
-    const btnPause = document.getElementById('btn-timer-pause');
-    const btnStop = document.getElementById('btn-timer-stop');
-    const taktFill = document.getElementById('takt-fill');
-    const taktLabel = document.getElementById('takt-label');
+    const insTimerDisplay = document.getElementById('ins-timer-display');
+    const btnInsPause = document.getElementById('btn-ins-timer-pause');
+    const btnInsResume = document.getElementById('btn-ins-timer-resume');
+    const insTaktFill = document.getElementById('ins-takt-fill');
+    const insTaktLabel = document.getElementById('ins-takt-label');
 
     function formatTimer(seconds) {
         const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
@@ -592,78 +732,103 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${h}:${m}:${s}`;
     }
 
-    function updateTaktIndicator() {
-        const pct = Math.min((timerSeconds / TAKT_TIME) * 100, 100);
-        taktFill.style.width = pct + '%';
-        taktLabel.textContent = `${timerSeconds} / ${TAKT_TIME}s`;
+    function updateInsTaktIndicator() {
+        if (!insTaktFill || !insTaktLabel) return;
+        const pct = Math.min((insTimerSeconds / TAKT_TIME) * 100, 100);
+        insTaktFill.style.width = pct + '%';
+        insTaktLabel.textContent = `${insTimerSeconds} / ${TAKT_TIME}s`;
 
-        taktFill.classList.remove('warning', 'danger');
-        if (pct > 100) taktFill.classList.add('danger');
-        else if (pct > 80) taktFill.classList.add('warning');
+        insTaktFill.classList.remove('warning', 'danger');
+        if (pct > 100) insTaktFill.classList.add('danger');
+        else if (pct > 80) insTaktFill.classList.add('warning');
     }
 
-    if (btnStart) {
-        btnStart.addEventListener('click', () => {
-            timerRunning = true;
-            timerDisplay.className = 'timer-display running';
-            btnStart.style.display = 'none';
-            btnPause.style.display = 'inline-flex';
-            btnStop.style.display = 'inline-flex';
+    function startInsTimer() {
+        if (insTimerRunning) return;
+        insTimerRunning = true;
+        insTimerStartTime = new Date();
+        insTimerSeconds = 0;
+        insPauseDuration = 0;
+        if (insTimerDisplay) insTimerDisplay.className = 'timer-display running';
+        if (btnInsPause) btnInsPause.style.display = 'inline-flex';
+        if (btnInsResume) btnInsResume.style.display = 'none';
 
-            timerInterval = setInterval(() => {
-                timerSeconds++;
-                timerDisplay.textContent = formatTimer(timerSeconds);
-                updateTaktIndicator();
+        insTimerInterval = setInterval(() => {
+            insTimerSeconds++;
+            if (insTimerDisplay) insTimerDisplay.textContent = formatTimer(insTimerSeconds);
+            updateInsTaktIndicator();
+        }, 1000);
+    }
+
+    function stopInsTimerAuto() {
+        if (!insTimerRunning && !insPauseStart) return;
+        clearInterval(insTimerInterval);
+        insTimerRunning = false;
+        if (insTimerDisplay) insTimerDisplay.className = 'timer-display stopped';
+        if (btnInsPause) btnInsPause.style.display = 'none';
+        if (btnInsResume) btnInsResume.style.display = 'none';
+
+        const status = insTimerSeconds <= TAKT_TIME ? 'OK' : 'OVER';
+        showToast(status === 'OK' ? 'success' : 'warning', 'Cycle Complete', `Cycle: ${insTimerSeconds}s / Takt: ${TAKT_TIME}s`);
+    }
+
+    function stopInsTimerReset() {
+        clearInterval(insTimerInterval);
+        insTimerRunning = false;
+        insTimerSeconds = 0;
+        insPauseDuration = 0;
+        insPauseStart = null;
+        if (insTimerDisplay) {
+            insTimerDisplay.className = 'timer-display stopped';
+            insTimerDisplay.textContent = '00:00:00';
+        }
+        updateInsTaktIndicator();
+        if (btnInsPause) btnInsPause.style.display = 'none';
+        if (btnInsResume) btnInsResume.style.display = 'none';
+    }
+
+    // Pause (for break time)
+    if (btnInsPause) {
+        btnInsPause.addEventListener('click', () => {
+            if (!insTimerRunning) return;
+            clearInterval(insTimerInterval);
+            insTimerRunning = false;
+            insPauseStart = new Date();
+            if (insTimerDisplay) insTimerDisplay.className = 'timer-display paused';
+            btnInsPause.style.display = 'none';
+            if (btnInsResume) btnInsResume.style.display = 'inline-flex';
+        });
+    }
+
+    // Resume after break
+    if (btnInsResume) {
+        btnInsResume.addEventListener('click', () => {
+            if (insTimerRunning) return;
+            if (insPauseStart) {
+                insPauseDuration += Math.round((new Date() - insPauseStart) / 1000);
+                insPauseStart = null;
+            }
+            insTimerRunning = true;
+            if (insTimerDisplay) insTimerDisplay.className = 'timer-display running';
+            if (btnInsPause) btnInsPause.style.display = 'inline-flex';
+            btnInsResume.style.display = 'none';
+
+            insTimerInterval = setInterval(() => {
+                insTimerSeconds++;
+                if (insTimerDisplay) insTimerDisplay.textContent = formatTimer(insTimerSeconds);
+                updateInsTaktIndicator();
             }, 1000);
         });
     }
 
-    if (btnPause) {
-        btnPause.addEventListener('click', () => {
-            if (timerRunning) {
-                clearInterval(timerInterval);
-                timerRunning = false;
-                timerDisplay.className = 'timer-display paused';
-                btnPause.innerHTML = '<i class="fa-solid fa-play"></i> Resume';
-                btnPause.style.background = 'var(--gradient-success)';
-            } else {
-                timerRunning = true;
-                timerDisplay.className = 'timer-display running';
-                btnPause.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
-                btnPause.style.background = 'var(--gradient-amber)';
-                timerInterval = setInterval(() => {
-                    timerSeconds++;
-                    timerDisplay.textContent = formatTimer(timerSeconds);
-                    updateTaktIndicator();
-                }, 1000);
+    // Update inspection badges when navigation changes to inspection view
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (item.getAttribute('data-target') === 'view-inspection') {
+                updateInsBadges();
             }
         });
-    }
-
-    if (btnStop) {
-        btnStop.addEventListener('click', () => {
-            clearInterval(timerInterval);
-            timerRunning = false;
-
-            const status = timerSeconds <= TAKT_TIME ? 'OK' : 'OVER';
-            const statusBadge = status === 'OK'
-                ? '<span class="status-badge success">OK</span>'
-                : '<span class="status-badge warning">OVER</span>';
-
-            showToast(status === 'OK' ? 'success' : 'warning', 'Cycle Complete', `Cycle time: ${timerSeconds}s (Takt: ${TAKT_TIME}s)`);
-
-            timerDisplay.className = 'timer-display stopped';
-            timerDisplay.textContent = '00:00:00';
-            timerSeconds = 0;
-            updateTaktIndicator();
-
-            btnStart.style.display = 'inline-flex';
-            btnPause.style.display = 'none';
-            btnStop.style.display = 'none';
-            btnPause.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
-            btnPause.style.background = 'var(--gradient-amber)';
-        });
-    }
+    });
 
     // ============================================================
     // EXPORT DATA

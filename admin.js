@@ -529,6 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // COMPONENT CRUD
     // ============================================================
     function renderComponents() {
+        localStorage.setItem('masterComponents', JSON.stringify(components));
         renderTable('component-table-body', components, (c) => `
             <td><span class="tag">${c.code}</span></td>
             <td>${c.name}</td>

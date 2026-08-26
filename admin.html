@@ -47,7 +47,7 @@
                 <a href="#" class="nav-item" data-target="component-view"><i class="fa-solid fa-cogs"></i> Master Component</a>
                 <a href="#" class="nav-item" data-target="stage-view"><i class="fa-solid fa-layer-group"></i> Master Stage</a>
                 <a href="#" class="nav-item" data-target="variant-view"><i class="fa-solid fa-car-side"></i> Master Variant</a>
-                <a href="#" class="nav-item" data-target="checklist-view"><i class="fa-solid fa-list-check"></i> Checklist Items</a>
+                <a href="#" class="nav-item" data-target="cycletime-view"><i class="fa-solid fa-stopwatch"></i> Cycle Time Records</a>
                 <div class="nav-divider"></div>
                 <a href="index.html" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Back to App</a>
             </nav>
@@ -327,27 +327,75 @@
                 </div>
             </section>
 
-            <!-- CHECKLIST ITEMS VIEW -->
-            <section id="checklist-view" class="view-section hidden">
+            <!-- CYCLE TIME RECORDS VIEW (Admin Only) -->
+            <section id="cycletime-view" class="view-section hidden">
                 <div class="action-bar glass-panel mb-4">
                     <div class="filter-group select-filters">
                         <div class="filter-item">
-                            <label>Variant</label>
-                            <select id="checklist-variant-filter"><option>All Variants</option><option>N-Series X</option><option>N-Series Y</option></select>
+                            <label>Date</label>
+                            <input type="date" id="ct-filter-date" value="2026-08-26">
+                        </div>
+                        <div class="filter-item">
+                            <label>Shift</label>
+                            <select id="ct-filter-shift"><option value="all">All Shifts</option><option value="Shift 1">Shift 1</option><option value="Shift 2">Shift 2</option></select>
                         </div>
                         <div class="filter-item">
                             <label>Stage</label>
-                            <select id="checklist-stage-filter"><option>All Stages</option><option>Stage 5</option><option>Stage 13</option></select>
+                            <select id="ct-filter-stage"><option value="all">All Stages</option><option value="Stage 5">Stage 5</option><option value="Stage 13">Stage 13</option></select>
                         </div>
                     </div>
-                    <button class="btn-primary small" id="btn-add-checklist"><i class="fa-solid fa-plus"></i> Add Item</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-primary small" id="btn-filter-ct"><i class="fa-solid fa-filter"></i> Apply</button>
+                        <button class="btn-ghost small" id="btn-export-ct"><i class="fa-solid fa-download"></i> Export CSV</button>
+                    </div>
                 </div>
+
+                <!-- Summary Cards -->
+                <div class="kpi-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                    <div class="glass-panel kpi-card" style="padding: 18px 20px;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Total Inspections</div>
+                        <div class="kpi-value" id="ct-total-count" style="font-size: 28px;">0</div>
+                    </div>
+                    <div class="glass-panel kpi-card" style="padding: 18px 20px;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Avg Cycle Time</div>
+                        <div class="kpi-value" id="ct-avg-time" style="font-size: 28px; color: var(--accent-primary);">0s</div>
+                    </div>
+                    <div class="glass-panel kpi-card" style="padding: 18px 20px;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">OK Rate</div>
+                        <div class="kpi-value" id="ct-ok-rate" style="font-size: 28px; color: var(--accent-green);">0%</div>
+                    </div>
+                    <div class="glass-panel kpi-card" style="padding: 18px 20px;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Over Takt</div>
+                        <div class="kpi-value" id="ct-over-count" style="font-size: 28px; color: var(--accent-red);">0</div>
+                    </div>
+                </div>
+
                 <div class="data-table-section glass-panel">
                     <div class="table-responsive">
                         <table class="premium-table">
-                            <thead><tr><th>Code</th><th>Description</th><th>Variant</th><th>Stage</th><th>Status</th><th>Actions</th></tr></thead>
-                            <tbody id="checklist-table-body"></tbody>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>NIK</th>
+                                    <th>Variant</th>
+                                    <th>Stage</th>
+                                    <th>Inspector</th>
+                                    <th>Shift</th>
+                                    <th>Group</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Cycle (s)</th>
+                                    <th>Pause (s)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cycletime-table-body"></tbody>
                         </table>
+                    </div>
+                    <div id="ct-empty-state" class="empty-state" style="display: none; padding: 40px 20px; text-align: center;">
+                        <i class="fa-solid fa-stopwatch" style="font-size: 36px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                        <p style="color: var(--text-muted);">No cycle time records found for the selected filters.</p>
                     </div>
                 </div>
             </section>
@@ -578,44 +626,7 @@
         </div>
     </div>
 
-    <!-- Checklist Modal -->
-    <div id="checklist-modal" class="modal-overlay">
-        <div class="glass-panel modal-box">
-            <div class="modal-header">
-                <h3 id="checklist-modal-title">Add Checklist Item</h3>
-                <button class="btn-close" id="close-checklist-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <form id="checklist-form">
-                <input type="hidden" id="checklist-id">
-                <div class="form-group">
-                    <label for="checklist-code">Item Code</label>
-                    <input type="text" id="checklist-code" required placeholder="e.g. CHK-01">
-                </div>
-                <div class="form-group">
-                    <label for="checklist-desc">Description</label>
-                    <input type="text" id="checklist-desc" required placeholder="e.g. Visual Check Panel A">
-                </div>
-                <div class="form-row">
-                    <div class="form-group half">
-                        <label for="checklist-variant">Variant</label>
-                        <select id="checklist-variant"><option value="All">All</option><option value="N-Series X">N-Series X</option><option value="N-Series Y">N-Series Y</option></select>
-                    </div>
-                    <div class="form-group half">
-                        <label for="checklist-stage">Stage</label>
-                        <select id="checklist-stage"><option value="All">All</option><option value="Stage 5">Stage 5</option><option value="Stage 13">Stage 13</option></select>
-                    </div>
-                </div>
-                <div class="form-group toggle-group">
-                    <label for="checklist-active">Active Status</label>
-                    <label class="switch"><input type="checkbox" id="checklist-active" checked><span class="slider round"></span></label>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-ghost" id="cancel-checklist-modal">Cancel</button>
-                    <button type="submit" class="btn-primary small">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
+
 
     <!-- Custom JS -->
     <script src="admin.js"></script>

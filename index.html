@@ -91,7 +91,6 @@
                 <a href="#" class="nav-item" data-target="view-inspection"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
                 <a href="#" class="nav-item" data-target="view-traceability"><i class="fa-solid fa-qrcode"></i> Traceability</a>
                 <a href="#" class="nav-item" data-target="view-defect"><i class="fa-solid fa-triangle-exclamation"></i> Defect Mgmt</a>
-                <a href="#" class="nav-item" data-target="view-cycle-timer"><i class="fa-solid fa-stopwatch"></i> Cycle Timer</a>
                 <div class="nav-divider"></div>
                 <div class="nav-section-title">REPORTS</div>
                 <a href="#" class="nav-item" data-target="view-export"><i class="fa-solid fa-file-export"></i> Export Data</a>
@@ -344,20 +343,56 @@
                  VIEW: INSPECTION
                  ============================================================ -->
             <div id="view-inspection" class="view-section">
-                <!-- Step Indicator -->
-                <div class="step-indicator" id="step-indicator">
-                    <div class="step active" data-step="1"><span class="step-num">1</span> Select Variant</div>
-                    <div class="step-connector"></div>
-                    <div class="step" data-step="2"><span class="step-num">2</span> Scan NIK</div>
-                    <div class="step-connector"></div>
-                    <div class="step" data-step="3"><span class="step-num">3</span> Inspect</div>
+
+                <!-- INSPECTION STATION BANNER + CYCLE TIMER -->
+                <div class="glass-panel" style="margin-bottom: 16px; overflow: hidden;">
+                    <div style="display: flex; align-items: stretch;">
+                        <!-- Left: Station Info -->
+                        <div style="flex: 1; padding: 20px 24px; display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 48px; height: 48px; border-radius: 12px; background: var(--accent-cyan-glow); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--accent-cyan); flex-shrink: 0;">
+                                <i class="fa-solid fa-clipboard-check"></i>
+                            </div>
+                            <div>
+                                <h2 style="font-size: 17px; font-weight: 700; margin-bottom: 4px;">Inspection Station</h2>
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    <span class="badge badge-cyan" id="ins-badge-pos">Stage 13</span>
+                                    <span class="badge badge-pos" id="ins-badge-shift">Shift 1</span>
+                                    <span class="badge" id="ins-badge-group">Group A</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Right: Cycle Timer -->
+                        <div style="width: 320px; border-left: 1px solid var(--border-glass); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.15);">
+                            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">
+                                <i class="fa-solid fa-stopwatch"></i> Cycle Timer
+                            </div>
+                            <div class="timer-display stopped" id="ins-timer-display" style="font-size: 36px; padding: 4px 0;">00:00:00</div>
+                            <div class="takt-indicator" style="padding: 6px 0; border: none; width: 100%;">
+                                <div class="takt-bar" style="flex: 1;">
+                                    <div class="takt-fill" id="ins-takt-fill" style="width: 0%;"></div>
+                                </div>
+                                <span style="font-size: 10px; color: var(--text-muted); font-weight: 600; white-space: nowrap;" id="ins-takt-label">0 / 180s</span>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn-primary" id="btn-ins-timer-pause" style="width: auto; padding: 6px 16px; font-size: 11px; background: var(--gradient-amber); display: none;">
+                                    <i class="fa-solid fa-pause"></i> Pause
+                                </button>
+                                <button class="btn-primary success" id="btn-ins-timer-resume" style="width: auto; padding: 6px 16px; font-size: 11px; display: none;">
+                                    <i class="fa-solid fa-play"></i> Resume
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Step 1: Variant -->
-                <div class="glass-panel" style="padding: 24px; margin-bottom: 16px;">
-                    <h3 style="margin-bottom: 14px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;">
-                        <i class="fa-solid fa-car-side"></i> Select Variant
-                    </h3>
+                <!-- SCANNING WORKFLOW: Sequential top-to-bottom -->
+
+                <!-- 1. Select Variant -->
+                <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;">1</span>
+                        <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;"><i class="fa-solid fa-car-side" style="margin-right: 6px; color: var(--accent-cyan);"></i> Select Variant</h3>
+                    </div>
                     <select id="select-variant" style="font-size: 15px; padding: 13px; cursor: pointer;">
                         <option value="">-- Pilih Variant --</option>
                         <option value="N-Series X">N-Series X</option>
@@ -365,71 +400,71 @@
                     </select>
                 </div>
 
-                <!-- Step 2: Scan NIK -->
-                <div class="glass-panel" style="padding: 24px; margin-bottom: 16px;">
-                    <h3 style="margin-bottom: 14px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;">
-                        <i class="fa-solid fa-barcode"></i> Scan Unit NIK
-                    </h3>
+                <!-- 2. Scan NIK -->
+                <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 12px;" id="section-scan-nik">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <span style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;" id="step-nik-num">2</span>
+                        <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;"><i class="fa-solid fa-barcode" style="margin-right: 6px; color: var(--accent-cyan);"></i> Scan Unit NIK</h3>
+                    </div>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="nik-input" placeholder="Scan or enter NIK (e.g., NIK-2026-001)" style="font-size: 16px; padding: 14px;" disabled>
+                        <input type="text" id="nik-input" placeholder="Scan or type NIK — timer starts automatically" style="font-size: 16px; padding: 14px;" disabled>
                         <button id="btn-scan" class="btn-primary" style="width: auto; min-width: 120px; opacity: 0.4; cursor: not-allowed;" disabled>
-                            <i class="fa-solid fa-magnifying-glass"></i> Check
+                            <i class="fa-solid fa-qrcode"></i> Scan
                         </button>
                     </div>
                 </div>
 
-                <!-- Inspection Form (Hidden initially) -->
+                <!-- 3. Component Scanning Area (Hidden until NIK is scanned) -->
                 <div id="inspection-form-container" style="display: none;">
-                    <!-- Dynamic Component Input -->
-                    <div id="component-data-container" style="display: none; margin-bottom: 16px;"></div>
 
-                    <!-- Unit Info Cards -->
-                    <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 16px;">
-                        <div class="kpi-card glass-panel highlight-violet">
-                            <div class="kpi-icon"><i class="fa-solid fa-barcode"></i></div>
-                            <div class="kpi-data">
-                                <h3>Active NIK</h3>
-                                <div class="kpi-value" id="display-nik" style="font-size: 18px;">-</div>
+                    <!-- Unit Summary Strip -->
+                    <div class="glass-panel" style="padding: 14px 24px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-left: 3px solid var(--accent-cyan);">
+                        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                            <div>
+                                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">NIK</span>
+                                <div style="font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" id="display-nik">-</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Variant</span>
+                                <div style="font-size: 14px; font-weight: 600;" id="display-variant">-</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">POS</span>
+                                <div style="font-size: 14px; font-weight: 600;" id="display-pos">-</div>
                             </div>
                         </div>
-                        <div class="kpi-card glass-panel highlight-blue">
-                            <div class="kpi-icon"><i class="fa-solid fa-car-side"></i></div>
-                            <div class="kpi-data">
-                                <h3>Variant</h3>
-                                <div class="kpi-value" id="display-variant" style="font-size: 18px;">-</div>
-                            </div>
-                        </div>
-                        <div class="kpi-card glass-panel highlight-amber">
-                            <div class="kpi-icon"><i class="fa-solid fa-map-pin"></i></div>
-                            <div class="kpi-data">
-                                <h3>Current Pos</h3>
-                                <div class="kpi-value" id="display-pos" style="font-size: 18px;">-</div>
-                            </div>
-                        </div>
+                        <span class="status-badge success" id="scan-progress-badge">0 / 0 Scanned</span>
                     </div>
 
-                    <!-- Checklist Table -->
-                    <div class="data-table-section glass-panel">
-                        <div class="section-header">
-                            <h3><i class="fa-solid fa-list-check"></i> Inspection Items</h3>
+                    <!-- Component Scan Inputs (Generated by JS based on variant + stage) -->
+                    <div id="component-scan-list"></div>
+
+                    <!-- Defect Note Section -->
+                    <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 12px;" id="defect-note-section">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                            <span style="width: 28px; height: 28px; border-radius: 50%; background: rgba(244, 63, 94, 0.15); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--accent-red); flex-shrink: 0;"><i class="fa-solid fa-bug"></i></span>
+                            <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Defect Note <span style="font-weight: 400; color: var(--text-muted); text-transform: none; letter-spacing: 0;">(optional — leave blank if no defect)</span></h3>
                         </div>
-                        <div class="table-responsive">
-                            <table class="premium-table inspection-table">
-                                <thead>
-                                    <tr>
-                                        <th>Item Code</th>
-                                        <th>Description</th>
-                                        <th style="width: 180px; text-align: center;">Result</th>
-                                        <th>Defect Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inspection-items-tbody"></tbody>
-                            </table>
+                        <div id="defect-notes-container">
+                            <div class="defect-note-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start;">
+                                <textarea id="defect-note-1" placeholder="Describe defect... (e.g., Baut longgar pada bracket A)" style="flex: 1; min-height: 60px;"></textarea>
+                                <select id="defect-status-1" style="width: 130px; padding: 11px 14px;">
+                                    <option value="OPEN">OPEN</option>
+                                    <option value="CLOSED">CLOSED</option>
+                                </select>
+                            </div>
                         </div>
-                        <div style="padding: 18px; border-top: 1px solid var(--border-glass); display: flex; justify-content: flex-end; gap: 10px;">
-                            <button class="btn-ghost" id="btn-cancel-inspection" style="width: auto;"><i class="fa-solid fa-xmark"></i> Cancel</button>
-                            <button class="btn-primary success" id="btn-submit-inspection" style="width: auto;"><i class="fa-solid fa-check"></i> Submit Inspection</button>
-                        </div>
+                        <button class="btn-ghost" id="btn-add-defect-note" style="width: auto; padding: 7px 16px; font-size: 12px;">
+                            <i class="fa-solid fa-plus"></i> Add Another Defect
+                        </button>
+                    </div>
+
+                    <!-- Submit Actions -->
+                    <div class="glass-panel" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn-ghost" id="btn-cancel-inspection" style="width: auto;"><i class="fa-solid fa-xmark"></i> Cancel</button>
+                        <button class="btn-primary success" id="btn-submit-inspection" style="width: auto; padding: 12px 32px;">
+                            <i class="fa-solid fa-check-double"></i> Submit Inspection
+                        </button>
                     </div>
                 </div>
             </div>
@@ -574,79 +609,7 @@
                 </div>
             </div>
 
-            <!-- ============================================================
-                 VIEW: CYCLE TIMER
-                 ============================================================ -->
-            <div id="view-cycle-timer" class="view-section">
-                <div class="glass-panel" style="text-align: center; margin-bottom: 16px;">
-                    <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-glass);">
-                        <h3 style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; color: var(--text-muted);">
-                            <i class="fa-solid fa-stopwatch"></i> Cycle Timer
-                        </h3>
-                    </div>
-                    <div class="timer-display stopped" id="timer-display">00:00:00</div>
-                    <div class="timer-controls">
-                        <button class="btn-primary success" id="btn-timer-start" style="width:auto; padding: 12px 36px;">
-                            <i class="fa-solid fa-play"></i> Start
-                        </button>
-                        <button class="btn-primary" id="btn-timer-pause" style="width:auto; padding: 12px 36px; background: var(--gradient-amber); display: none;">
-                            <i class="fa-solid fa-pause"></i> Pause
-                        </button>
-                        <button class="btn-ghost" id="btn-timer-stop" style="width:auto; padding: 12px 36px; display: none;">
-                            <i class="fa-solid fa-stop"></i> Stop
-                        </button>
-                    </div>
-                    <div class="takt-indicator">
-                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Takt Time</span>
-                        <div class="takt-bar">
-                            <div class="takt-fill" id="takt-fill" style="width: 0%;"></div>
-                        </div>
-                        <span style="font-size: 12px; color: var(--text-secondary); font-weight: 600;" id="takt-label">0 / 180s</span>
-                    </div>
-                </div>
 
-                <!-- Cycle History -->
-                <div class="data-table-section glass-panel">
-                    <div class="section-header">
-                        <h3><i class="fa-solid fa-clock-rotate-left text-cyan"></i> Cycle History (Today)</h3>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="premium-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>NIK</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Cycle Time</th>
-                                    <th>Delay</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cycle-history-tbody">
-                                <tr>
-                                    <td>1</td>
-                                    <td><span class="tag">NIK-001</span></td>
-                                    <td>08:01:12</td>
-                                    <td>08:03:45</td>
-                                    <td>153s</td>
-                                    <td>0s</td>
-                                    <td><span class="status-badge success">OK</span></td>
-                                </tr>
-                                <tr>
-                                    <td>2</td>
-                                    <td><span class="tag">NIK-002</span></td>
-                                    <td>08:04:00</td>
-                                    <td>08:07:20</td>
-                                    <td>200s</td>
-                                    <td>15s</td>
-                                    <td><span class="status-badge warning">OVER</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
 
             <!-- ============================================================
                  VIEW: EXPORT DATA
