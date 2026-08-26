@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF N-Series | Admin Dashboard</title>
+    <meta name="description" content="Admin panel for TCF N-Series Traceability system. Manage shifts, groups, users, components, stages, variants, and quality KPI.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="app-wrapper" class="app-wrapper">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>ADMIN PANEL</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-target="dashboard-view"><i class="fa-solid fa-chart-line"></i> Quality Dashboard</a>
+                <div class="nav-divider"></div>
+                <div class="nav-section-title">WORKFORCE</div>
+                <a href="#" class="nav-item" data-target="shift-view"><i class="fa-solid fa-clock"></i> Master Shift</a>
+                <a href="#" class="nav-item" data-target="group-view"><i class="fa-solid fa-users-rectangle"></i> Master Group</a>
+                <a href="#" class="nav-item" data-target="user-view"><i class="fa-solid fa-user-gear"></i> Master User</a>
+                <div class="nav-divider"></div>
+                <div class="nav-section-title">PRODUCTION</div>
+                <a href="#" class="nav-item" data-target="component-view"><i class="fa-solid fa-cogs"></i> Master Component</a>
+                <a href="#" class="nav-item" data-target="stage-view"><i class="fa-solid fa-layer-group"></i> Master Stage</a>
+                <a href="#" class="nav-item" data-target="variant-view"><i class="fa-solid fa-car-side"></i> Master Variant</a>
+                <a href="#" class="nav-item" data-target="checklist-view"><i class="fa-solid fa-list-check"></i> Checklist Items</a>
+                <div class="nav-divider"></div>
+                <a href="index.html" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Back to App</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="admin-user-info">
+                    <div class="avatar"><i class="fa-solid fa-user-shield"></i></div>
+                    <div class="user-details">
+                        <span class="user-name">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- HEADER -->
+            <header class="top-header glass-panel">
+                <div class="header-left">
+                    <h1 class="page-title" id="page-title-text">Quality KPI Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="time-display" id="admin-time">--:--:--</div>
+                </div>
+            </header>
+
+            <!-- ============================================================
+                 DASHBOARD VIEW
+                 ============================================================ -->
+            <section id="dashboard-view" class="view-section active">
+                <!-- FILTER BAR -->
+                <div class="filter-bar glass-panel mb-4">
+                    <div class="filter-group">
+                        <label>Period</label>
+                        <div class="period-tabs" id="admin-period-tabs">
+                            <button class="tab-btn active" data-period="daily">Daily</button>
+                            <button class="tab-btn" data-period="shift">Shift</button>
+                            <button class="tab-btn" data-period="weekly">Weekly</button>
+                            <button class="tab-btn" data-period="monthly">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="filter-group select-filters">
+                        <div class="filter-item">
+                            <label>Date</label>
+                            <input type="date" value="2026-08-26">
+                        </div>
+                        <div class="filter-item">
+                            <label>Shift</label>
+                            <select><option>All</option><option>Shift 1</option><option>Shift 2</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Group</label>
+                            <select><option>All</option><option>Group A</option><option>Group B</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Stage</label>
+                            <select><option>All</option><option>Stage 5</option><option>Stage 13</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Variant</label>
+                            <select><option>All</option><option>N-Series X</option><option>N-Series Y</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Inspector</label>
+                            <select><option>All</option><option>INS001</option><option>INS002</option></select>
+                        </div>
+                        <button class="btn-primary small"><i class="fa-solid fa-filter"></i> Apply</button>
+                    </div>
+                </div>
+
+                <!-- KPI GRID -->
+                <div class="kpi-grid mb-4">
+                    <div class="kpi-card glass-panel highlight-blue">
+                        <div class="kpi-icon"><i class="fa-solid fa-cubes"></i></div>
+                        <div class="kpi-data"><h3>Unit Check</h3><div class="kpi-value">1,000</div></div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-red">
+                        <div class="kpi-icon"><i class="fa-solid fa-bug"></i></div>
+                        <div class="kpi-data"><h3>Total Defect</h3><div class="kpi-value">45</div></div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-amber">
+                        <div class="kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="kpi-data"><h3>DPU</h3><div class="kpi-value">0.045</div><span class="kpi-subtext">Defect per Unit</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-green">
+                        <div class="kpi-icon"><i class="fa-solid fa-bolt"></i></div>
+                        <div class="kpi-data"><h3>DRR</h3><div class="kpi-value">97.20%</div><span class="kpi-subtext">Direct Run Ratio</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-green"><i class="fa-solid fa-check-double"></i></div>
+                        <div class="kpi-data"><h3>Direct Run</h3><div class="kpi-value">972</div><span class="kpi-subtext">Units</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-red"><i class="fa-solid fa-xmark"></i></div>
+                        <div class="kpi-data"><h3>Not Direct Run</h3><div class="kpi-value">28</div><span class="kpi-subtext">Units passed w/ open defect</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-amber"><i class="fa-solid fa-folder-open"></i></div>
+                        <div class="kpi-data"><h3>Open Defect</h3><div class="kpi-value">10</div><span class="kpi-subtext">Currently Active</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-blue"><i class="fa-solid fa-folder-closed"></i></div>
+                        <div class="kpi-data"><h3>Closed Defect</h3><div class="kpi-value">35</div><span class="kpi-subtext">Resolved</span></div>
+                    </div>
+                </div>
+
+                <!-- SHIFT & GROUP COMPARISON -->
+                <div class="comparison-section mb-4">
+                    <div class="comparison-card glass-panel">
+                        <div class="comparison-title"><i class="fa-solid fa-clock text-cyan"></i> Shift Comparison</div>
+                        <table class="comparison-table">
+                            <thead><tr><th>KPI</th><th>Shift 1</th><th>Shift 2</th></tr></thead>
+                            <tbody>
+                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
+                                <tr><td>Total Defect</td><td>20</td><td>25</td></tr>
+                                <tr><td>DPU</td><td>0.040</td><td>0.050</td></tr>
+                                <tr><td>Direct Run</td><td>490</td><td>482</td></tr>
+                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.0%</td><td style="color:var(--accent-amber)">96.4%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="comparison-card glass-panel">
+                        <div class="comparison-title"><i class="fa-solid fa-users text-violet"></i> Group Comparison</div>
+                        <table class="comparison-table">
+                            <thead><tr><th>KPI</th><th>Group A</th><th>Group B</th></tr></thead>
+                            <tbody>
+                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
+                                <tr><td>Total Defect</td><td>21</td><td>24</td></tr>
+                                <tr><td>DPU</td><td>0.042</td><td>0.048</td></tr>
+                                <tr><td>Direct Run</td><td>491</td><td>481</td></tr>
+                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.2%</td><td style="color:var(--accent-amber)">96.2%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CHARTS -->
+                <div class="charts-section mb-4">
+                    <div class="chart-container glass-panel">
+                        <div class="chart-header"><h3><i class="fa-solid fa-arrow-trend-down text-amber"></i> DPU Trend</h3></div>
+                        <div class="canvas-wrapper"><canvas id="dpuChartAdmin"></canvas></div>
+                    </div>
+                    <div class="chart-container glass-panel">
+                        <div class="chart-header"><h3><i class="fa-solid fa-arrow-trend-up text-green"></i> DRR Trend</h3></div>
+                        <div class="canvas-wrapper"><canvas id="drrChartAdmin"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- DIRECT RUN EXCEPTION TABLE -->
+                <div class="data-table-section glass-panel">
+                    <div class="section-header"><h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Direct Run Exception</h3></div>
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>NIK</th><th>Defect</th><th>POS Asal</th><th>POS Breach</th><th>Shift</th><th>Group</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="tag">NIK-001</span></td><td>Baut longgar</td><td>Stage 5</td><td>Stage 13</td><td>Shift 1</td><td>Group A</td><td><span class="status-badge error">OPEN</span></td></tr>
+                                <tr><td><span class="tag">NIK-014</span></td><td>Kabel Terjepit</td><td>Stage 3</td><td>Stage 8</td><td>Shift 2</td><td>Group B</td><td><span class="status-badge error">OPEN</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================================
+                 SHIFT VIEW
+                 ============================================================ -->
+            <section id="shift-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-shift" placeholder="Search shifts...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-shift"><i class="fa-solid fa-plus"></i> Add Shift</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Shift Name</th><th>Start</th><th>End</th><th>Overnight</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="shift-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP VIEW -->
+            <section id="group-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-group" placeholder="Search groups...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-group"><i class="fa-solid fa-plus"></i> Add Group</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Group Name</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="group-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- USER VIEW -->
+            <section id="user-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-user" placeholder="Search users...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-user"><i class="fa-solid fa-plus"></i> Add User</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Def. Group</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="user-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COMPONENT VIEW -->
+            <section id="component-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-component" placeholder="Search components...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-component"><i class="fa-solid fa-plus"></i> Add Component</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Component Name</th><th>Required in Stage</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="component-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STAGE VIEW -->
+            <section id="stage-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-stage" placeholder="Search stages...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-stage"><i class="fa-solid fa-plus"></i> Add Stage</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Stage Name</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="stage-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VARIANT VIEW -->
+            <section id="variant-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-variant" placeholder="Search variants...">
+                    </div>
+                    <button class="btn-primary small" id="btn-add-variant"><i class="fa-solid fa-plus"></i> Add Variant</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Variant Name</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="variant-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CHECKLIST ITEMS VIEW -->
+            <section id="checklist-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="filter-group select-filters">
+                        <div class="filter-item">
+                            <label>Variant</label>
+                            <select id="checklist-variant-filter"><option>All Variants</option><option>N-Series X</option><option>N-Series Y</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Stage</label>
+                            <select id="checklist-stage-filter"><option>All Stages</option><option>Stage 5</option><option>Stage 13</option></select>
+                        </div>
+                    </div>
+                    <button class="btn-primary small" id="btn-add-checklist"><i class="fa-solid fa-plus"></i> Add Item</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>Code</th><th>Description</th><th>Variant</th><th>Stage</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="checklist-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ============================================================
+         MODALS
+         ============================================================ -->
+
+    <!-- Shift Modal -->
+    <div id="shift-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="shift-modal-title">Add New Shift</h3>
+                <button class="btn-close" id="close-shift-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="shift-form">
+                <input type="hidden" id="shift-id">
+                <div class="form-group">
+                    <label for="shift-code">Shift Code</label>
+                    <input type="text" id="shift-code" required placeholder="e.g. S1">
+                </div>
+                <div class="form-group">
+                    <label for="shift-name">Shift Name</label>
+                    <input type="text" id="shift-name" required placeholder="e.g. Shift 1">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="shift-start">Start Time</label>
+                        <input type="time" id="shift-start" required>
+                    </div>
+                    <div class="form-group half">
+                        <label for="shift-end">End Time</label>
+                        <input type="time" id="shift-end" required>
+                    </div>
+                </div>
+                <div class="form-group toggle-group">
+                    <div>
+                        <label for="shift-overnight" style="margin-bottom:2px;">Overnight</label>
+                        <span style="font-size: 11px; color: var(--text-muted); display: block;">Crosses midnight</span>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="shift-overnight"><span class="slider round"></span></label>
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="shift-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="shift-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-shift-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Group Modal -->
+    <div id="group-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="group-modal-title">Add New Group</h3>
+                <button class="btn-close" id="close-group-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="group-form">
+                <input type="hidden" id="group-id">
+                <div class="form-group">
+                    <label for="group-code">Group Code</label>
+                    <input type="text" id="group-code" required placeholder="e.g. A">
+                </div>
+                <div class="form-group">
+                    <label for="group-name">Group Name</label>
+                    <input type="text" id="group-name" required placeholder="e.g. Group A">
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="group-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="group-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-group-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="user-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Add New User</h3>
+                <button class="btn-close" id="close-user-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="user-form">
+                <input type="hidden" id="user-id">
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="user-username">Username</label>
+                        <input type="text" id="user-username" required placeholder="e.g. INS001">
+                    </div>
+                    <div class="form-group half">
+                        <label for="user-password">Password</label>
+                        <input type="password" id="user-password" required placeholder="••••••••">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="user-fullname">Full Name</label>
+                    <input type="text" id="user-fullname" required placeholder="e.g. John Doe">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="user-role">Role</label>
+                        <select id="user-role" required>
+                            <option value="Inspector">Inspector</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Quality">Quality</option>
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label for="user-defaultgroup">Default Group</label>
+                        <select id="user-defaultgroup">
+                            <option value="">None</option>
+                            <option value="Group A">Group A</option>
+                            <option value="Group B">Group B</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="user-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="user-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-user-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Component Modal -->
+    <div id="component-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="component-modal-title">Add New Component</h3>
+                <button class="btn-close" id="close-component-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="component-form">
+                <input type="hidden" id="component-id">
+                <div class="form-group">
+                    <label for="component-code">Component Code</label>
+                    <input type="text" id="component-code" required placeholder="e.g. COMP-001">
+                </div>
+                <div class="form-group">
+                    <label for="component-name">Component Name</label>
+                    <input type="text" id="component-name" required placeholder="e.g. Battery Pack">
+                </div>
+                <div class="form-group">
+                    <label for="component-stage">Required in Stage</label>
+                    <input type="text" id="component-stage" placeholder="e.g. Stage 5">
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="component-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="component-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-component-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stage Modal -->
+    <div id="stage-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="stage-modal-title">Add New Stage</h3>
+                <button class="btn-close" id="close-stage-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="stage-form">
+                <input type="hidden" id="stage-id">
+                <div class="form-group">
+                    <label for="stage-code">Stage Code</label>
+                    <input type="text" id="stage-code" required placeholder="e.g. STG-05">
+                </div>
+                <div class="form-group">
+                    <label for="stage-name">Stage Name</label>
+                    <input type="text" id="stage-name" required placeholder="e.g. Stage 5">
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="stage-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="stage-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-stage-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Variant Modal -->
+    <div id="variant-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="variant-modal-title">Add New Variant</h3>
+                <button class="btn-close" id="close-variant-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="variant-form">
+                <input type="hidden" id="variant-id">
+                <div class="form-group">
+                    <label for="variant-code">Variant Code</label>
+                    <input type="text" id="variant-code" required placeholder="e.g. VAR-N">
+                </div>
+                <div class="form-group">
+                    <label for="variant-name">Variant Name</label>
+                    <input type="text" id="variant-name" required placeholder="e.g. N-Series Standard">
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="variant-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="variant-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-variant-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Checklist Modal -->
+    <div id="checklist-modal" class="modal-overlay">
+        <div class="glass-panel modal-box">
+            <div class="modal-header">
+                <h3 id="checklist-modal-title">Add Checklist Item</h3>
+                <button class="btn-close" id="close-checklist-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="checklist-form">
+                <input type="hidden" id="checklist-id">
+                <div class="form-group">
+                    <label for="checklist-code">Item Code</label>
+                    <input type="text" id="checklist-code" required placeholder="e.g. CHK-01">
+                </div>
+                <div class="form-group">
+                    <label for="checklist-desc">Description</label>
+                    <input type="text" id="checklist-desc" required placeholder="e.g. Visual Check Panel A">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="checklist-variant">Variant</label>
+                        <select id="checklist-variant"><option value="All">All</option><option value="N-Series X">N-Series X</option><option value="N-Series Y">N-Series Y</option></select>
+                    </div>
+                    <div class="form-group half">
+                        <label for="checklist-stage">Stage</label>
+                        <select id="checklist-stage"><option value="All">All</option><option value="Stage 5">Stage 5</option><option value="Stage 13">Stage 13</option></select>
+                    </div>
+                </div>
+                <div class="form-group toggle-group">
+                    <label for="checklist-active">Active Status</label>
+                    <label class="switch"><input type="checkbox" id="checklist-active" checked><span class="slider round"></span></label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" id="cancel-checklist-modal">Cancel</button>
+                    <button type="submit" class="btn-primary small">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="admin.js"></script>
+</body>
+</html>
