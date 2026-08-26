@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF N-Series | Traceability & Cycle Timer</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="login-overlay" class="login-overlay active">
+        <div class="glass-panel login-box">
+            <div class="login-header">
+                <i class="fa-solid fa-microchip logo-icon"></i>
+                <h2>TCF N-Series</h2>
+                <p>Traceability & Quality KPI</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username"><i class="fa-solid fa-user"></i> Username</label>
+                    <input type="text" id="username" placeholder="e.g., INS001" required>
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="shift"><i class="fa-solid fa-clock"></i> Shift</label>
+                        <select id="shift" required>
+                            <option value="" disabled selected>Select Shift</option>
+                            <option value="Shift 1">Shift 1</option>
+                            <option value="Shift 2">Shift 2 / Malam</option>
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label for="group"><i class="fa-solid fa-users"></i> Group</label>
+                        <select id="group" required>
+                            <option value="" disabled selected>Select Group</option>
+                            <option value="Group A">Group A</option>
+                            <option value="Group B">Group B</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Login to Workspace
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="app-wrapper" class="app-wrapper">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-microchip"></i>
+                <span>TCF N-SERIES</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-qrcode"></i> Traceability</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-triangle-exclamation"></i> Defect Management</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-stopwatch"></i> Cycle Timer</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-file-export"></i> Export Data</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn-ghost"><i class="fa-solid fa-power-off"></i> End Shift</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            
+            <!-- HEADER -->
+            <header class="top-header glass-panel">
+                <div class="header-left">
+                    <h1 class="page-title">Quality KPI Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="time-display" id="current-time">--:--:--</div>
+                    <div class="user-info">
+                        <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                        <div class="user-details">
+                            <span class="user-name" id="display-user">INS001</span>
+                            <span class="user-context"><span class="badge" id="display-shift">Shift 1</span> <span class="badge" id="display-group">Group A</span></span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- FILTER BAR -->
+            <section class="filter-bar glass-panel">
+                <div class="filter-group">
+                    <label>Period</label>
+                    <div class="period-tabs">
+                        <button class="tab-btn">Daily</button>
+                        <button class="tab-btn active">Shift</button>
+                        <button class="tab-btn">Weekly</button>
+                        <button class="tab-btn">Monthly</button>
+                    </div>
+                </div>
+                <div class="filter-group select-filters">
+                    <div class="filter-item">
+                        <label>Date</label>
+                        <input type="date" value="2026-08-26">
+                    </div>
+                    <div class="filter-item">
+                        <label>Stage</label>
+                        <select><option>All Stages</option><option>Stage 5</option><option>Stage 13</option></select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Variant</label>
+                        <select><option>All Variants</option></select>
+                    </div>
+                    <button class="btn-primary small"><i class="fa-solid fa-filter"></i> Apply</button>
+                </div>
+            </section>
+
+            <!-- KPI GRID -->
+            <section class="kpi-grid">
+                <!-- Row 1: General Metrics -->
+                <div class="kpi-card glass-panel highlight-blue">
+                    <div class="kpi-icon"><i class="fa-solid fa-cubes"></i></div>
+                    <div class="kpi-data">
+                        <h3>Unit Check</h3>
+                        <div class="kpi-value">1,000</div>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel highlight-red">
+                    <div class="kpi-icon"><i class="fa-solid fa-bug"></i></div>
+                    <div class="kpi-data">
+                        <h3>Total Defect</h3>
+                        <div class="kpi-value">45</div>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel highlight-orange">
+                    <div class="kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                    <div class="kpi-data">
+                        <h3>DPU</h3>
+                        <div class="kpi-value">0.045</div>
+                        <span class="kpi-subtext">Defect per Unit</span>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel highlight-green">
+                    <div class="kpi-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="kpi-data">
+                        <h3>DRR</h3>
+                        <div class="kpi-value">97.20%</div>
+                        <span class="kpi-subtext">Direct Run Ratio</span>
+                    </div>
+                </div>
+
+                <!-- Row 2: Breakdown Metrics -->
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon text-green"><i class="fa-solid fa-check-double"></i></div>
+                    <div class="kpi-data">
+                        <h3>Direct Run</h3>
+                        <div class="kpi-value">972</div>
+                        <span class="kpi-subtext">Units</span>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon text-red"><i class="fa-solid fa-xmark"></i></div>
+                    <div class="kpi-data">
+                        <h3>Not Direct Run</h3>
+                        <div class="kpi-value">28</div>
+                        <span class="kpi-subtext">Units passed w/ open defect</span>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon text-orange"><i class="fa-solid fa-folder-open"></i></div>
+                    <div class="kpi-data">
+                        <h3>Open Defect</h3>
+                        <div class="kpi-value">10</div>
+                        <span class="kpi-subtext">Currently Active</span>
+                    </div>
+                </div>
+                <div class="kpi-card glass-panel">
+                    <div class="kpi-icon text-blue"><i class="fa-solid fa-folder-closed"></i></div>
+                    <div class="kpi-data">
+                        <h3>Closed Defect</h3>
+                        <div class="kpi-value">35</div>
+                        <span class="kpi-subtext">Resolved</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CHARTS SECTION -->
+            <section class="charts-section">
+                <div class="chart-container glass-panel">
+                    <div class="chart-header">
+                        <h3><i class="fa-solid fa-arrow-trend-down text-orange"></i> DPU Trend</h3>
+                        <div class="chart-actions">
+                            <span class="badge">Shift</span>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="dpuChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container glass-panel">
+                    <div class="chart-header">
+                        <h3><i class="fa-solid fa-arrow-trend-up text-green"></i> DRR Trend</h3>
+                        <div class="chart-actions">
+                            <span class="badge">Shift</span>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="drrChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DIRECT RUN EXCEPTION TABLE -->
+            <section class="data-table-section glass-panel">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Direct Run Exception (Not Direct Run Events)</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="premium-table">
+                        <thead>
+                            <tr>
+                                <th>NIK</th>
+                                <th>Defect</th>
+                                <th>POS Asal</th>
+                                <th>POS Breach</th>
+                                <th>Shift</th>
+                                <th>Group</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="tag">NIK-001</span></td>
+                                <td>Baut longgar</td>
+                                <td>Stage 5</td>
+                                <td>Stage 13</td>
+                                <td>Shift 1</td>
+                                <td>Group A</td>
+                                <td><span class="status-badge error">OPEN</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">NIK-014</span></td>
+                                <td>Kabel Terjepit</td>
+                                <td>Stage 3</td>
+                                <td>Stage 8</td>
+                                <td>Shift 1</td>
+                                <td>Group A</td>
+                                <td><span class="status-badge error">OPEN</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">NIK-042</span></td>
+                                <td>Label Miring</td>
+                                <td>Stage 5</td>
+                                <td>Stage 13</td>
+                                <td>Shift 1</td>
+                                <td>Group A</td>
+                                <td><span class="status-badge success">CLOSED</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">NIK-089</span></td>
+                                <td>Torsi Kurang</td>
+                                <td>Stage 10</td>
+                                <td>Stage 15</td>
+                                <td>Shift 1</td>
+                                <td>Group A</td>
+                                <td><span class="status-badge error">OPEN</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+</body>
+</html>
