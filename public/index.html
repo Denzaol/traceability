@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCF N-Series | Traceability & Quality KPI</title>
+    <meta name="description" content="Traceability Part & Cycle Timer application for TCF N-Series production monitoring, quality KPI, DPU and DRR tracking.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="login-overlay" class="login-overlay active">
+        <div class="glass-panel login-box">
+            <div class="login-header">
+                <i class="fa-solid fa-microchip logo-icon"></i>
+                <h2>TCF N-Series</h2>
+                <p>Traceability & Quality KPI System</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username"><i class="fa-solid fa-user"></i> Username</label>
+                    <input type="text" id="username" placeholder="e.g., INS001" required>
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="shift"><i class="fa-solid fa-clock"></i> Shift</label>
+                        <select id="shift" required>
+                            <option value="" disabled selected>Select Shift</option>
+                            <option value="Shift 1">Shift 1</option>
+                            <option value="Shift 2">Shift 2 / Malam</option>
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label for="group"><i class="fa-solid fa-users"></i> Group</label>
+                        <select id="group" required>
+                            <option value="" disabled selected>Select Group</option>
+                            <option value="Group A">Group A</option>
+                            <option value="Group B">Group B</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-workstation"><i class="fa-solid fa-map-pin"></i> Workstation (POS)</label>
+                    <select id="login-workstation" required>
+                        <option value="" disabled selected>-- Pilih Workstation --</option>
+                        <option value="Stage 5">Stage 5</option>
+                        <option value="Stage 13">Stage 13</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary" id="btn-login">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Login to Workspace
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="app-wrapper" class="app-wrapper hidden">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-microchip"></i>
+                <span>TCF N-SERIES</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-target="view-dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <div class="nav-divider"></div>
+                <div class="nav-section-title">OPERATIONS</div>
+                <a href="#" class="nav-item" data-target="view-inspection"><i class="fa-solid fa-clipboard-check"></i> Inspection</a>
+                <a href="#" class="nav-item" data-target="view-traceability"><i class="fa-solid fa-qrcode"></i> Traceability</a>
+                <a href="#" class="nav-item" data-target="view-defect"><i class="fa-solid fa-triangle-exclamation"></i> Defect Mgmt</a>
+                <div class="nav-divider"></div>
+                <div class="nav-section-title">REPORTS</div>
+                <a href="#" class="nav-item" data-target="view-export"><i class="fa-solid fa-file-export"></i> Export Data</a>
+                <div class="nav-divider"></div>
+                <a href="admin.html" class="nav-item"><i class="fa-solid fa-user-shield"></i> Admin Panel</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn-ghost"><i class="fa-solid fa-power-off"></i> End Shift</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- HEADER -->
+            <header class="top-header glass-panel">
+                <div class="header-left">
+                    <h1 class="page-title" id="page-title-text">Quality KPI Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="time-display" id="current-time">--:--:--</div>
+                    <div class="user-info">
+                        <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                        <div class="user-details">
+                            <span class="user-name" id="display-user">INS001</span>
+                            <span class="user-context">
+                                <span class="badge" id="display-shift">Shift 1</span>
+                                <span class="badge" id="display-group">Group A</span>
+                                <span class="badge badge-pos" id="display-pos-header">Stage 13</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ============================================================
+                 VIEW: DASHBOARD
+                 ============================================================ -->
+            <div id="view-dashboard" class="view-section active">
+                <!-- FILTER BAR -->
+                <section class="filter-bar glass-panel" style="margin-bottom:16px">
+                    <div class="filter-group">
+                        <label>Period</label>
+                        <div class="period-tabs" id="period-tabs">
+                            <button class="tab-btn" data-period="daily">Daily</button>
+                            <button class="tab-btn active" data-period="shift">Shift</button>
+                            <button class="tab-btn" data-period="weekly">Weekly</button>
+                            <button class="tab-btn" data-period="monthly">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="filter-group select-filters">
+                        <div class="filter-item">
+                            <label>Date</label>
+                            <input type="date" id="filter-date" value="2026-08-26">
+                        </div>
+                        <div class="filter-item">
+                            <label>Stage</label>
+                            <select id="filter-stage"><option>All Stages</option><option>Stage 5</option><option>Stage 13</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Variant</label>
+                            <select id="filter-variant"><option>All Variants</option><option>N-Series X</option><option>N-Series Y</option></select>
+                        </div>
+                        <button class="btn-primary small" id="btn-apply-filter"><i class="fa-solid fa-filter"></i> Apply</button>
+                    </div>
+                </section>
+
+                <!-- KPI GRID -->
+                <section class="kpi-grid" style="margin-bottom:16px" id="kpi-grid">
+                    <!-- Row 1 -->
+                    <div class="kpi-card glass-panel highlight-blue">
+                        <div class="kpi-icon"><i class="fa-solid fa-cubes"></i></div>
+                        <div class="kpi-data">
+                            <h3>Unit Check</h3>
+                            <div class="kpi-value" data-count="1000">0</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-red">
+                        <div class="kpi-icon"><i class="fa-solid fa-bug"></i></div>
+                        <div class="kpi-data">
+                            <h3>Total Defect</h3>
+                            <div class="kpi-value" data-count="45">0</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-amber">
+                        <div class="kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="kpi-data">
+                            <h3>DPU</h3>
+                            <div class="kpi-value" data-count="0.045" data-decimal="3">0</div>
+                            <span class="kpi-subtext">Defect per Unit</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-green">
+                        <div class="kpi-icon"><i class="fa-solid fa-bolt"></i></div>
+                        <div class="kpi-data">
+                            <h3>DRR</h3>
+                            <div class="kpi-value" data-count="97.20" data-decimal="2" data-suffix="%">0</div>
+                            <span class="kpi-subtext">Direct Run Ratio</span>
+                        </div>
+                    </div>
+                    <!-- Row 2 -->
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-green"><i class="fa-solid fa-check-double"></i></div>
+                        <div class="kpi-data">
+                            <h3>Direct Run</h3>
+                            <div class="kpi-value" data-count="972">0</div>
+                            <span class="kpi-subtext">Units</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-red"><i class="fa-solid fa-xmark"></i></div>
+                        <div class="kpi-data">
+                            <h3>Not Direct Run</h3>
+                            <div class="kpi-value" data-count="28">0</div>
+                            <span class="kpi-subtext">Units passed w/ open defect</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-amber"><i class="fa-solid fa-folder-open"></i></div>
+                        <div class="kpi-data">
+                            <h3>Open Defect</h3>
+                            <div class="kpi-value" data-count="10">0</div>
+                            <span class="kpi-subtext">Currently Active</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass-panel">
+                        <div class="kpi-icon text-blue"><i class="fa-solid fa-folder-closed"></i></div>
+                        <div class="kpi-data">
+                            <h3>Closed Defect</h3>
+                            <div class="kpi-value" data-count="35">0</div>
+                            <span class="kpi-subtext">Resolved</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SHIFT & GROUP COMPARISON -->
+                <section class="comparison-section" style="margin-bottom:16px">
+                    <div class="comparison-card glass-panel">
+                        <div class="comparison-title"><i class="fa-solid fa-clock text-cyan"></i> Shift Comparison</div>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr><th>KPI</th><th>Shift 1</th><th>Shift 2</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
+                                <tr><td>Total Defect</td><td>20</td><td>25</td></tr>
+                                <tr><td>DPU</td><td>0.040</td><td>0.050</td></tr>
+                                <tr><td>Direct Run</td><td>490</td><td>482</td></tr>
+                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.0%</td><td style="color:var(--accent-amber)">96.4%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="comparison-card glass-panel">
+                        <div class="comparison-title"><i class="fa-solid fa-users text-violet"></i> Group Comparison</div>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr><th>KPI</th><th>Group A</th><th>Group B</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
+                                <tr><td>Total Defect</td><td>21</td><td>24</td></tr>
+                                <tr><td>DPU</td><td>0.042</td><td>0.048</td></tr>
+                                <tr><td>Direct Run</td><td>491</td><td>481</td></tr>
+                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.2%</td><td style="color:var(--accent-amber)">96.2%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- CHARTS -->
+                <section class="charts-section" style="margin-bottom:16px">
+                    <div class="chart-container glass-panel">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-arrow-trend-down text-amber"></i> DPU Trend</h3>
+                            <div class="chart-actions"><span class="badge badge-cyan">Shift</span></div>
+                        </div>
+                        <div class="canvas-wrapper"><canvas id="dpuChart"></canvas></div>
+                    </div>
+                    <div class="chart-container glass-panel">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-arrow-trend-up text-green"></i> DRR Trend</h3>
+                            <div class="chart-actions"><span class="badge badge-cyan">Shift</span></div>
+                        </div>
+                        <div class="canvas-wrapper"><canvas id="drrChart"></canvas></div>
+                    </div>
+                </section>
+
+                <!-- DIRECT RUN EXCEPTION TABLE -->
+                <section class="data-table-section glass-panel">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Direct Run Exception</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="premium-table" id="direct-run-table">
+                            <thead>
+                                <tr>
+                                    <th>NIK</th>
+                                    <th>Defect</th>
+                                    <th>POS Asal</th>
+                                    <th>POS Breach</th>
+                                    <th>Shift</th>
+                                    <th>Group</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="tag">NIK-001</span></td>
+                                    <td>Baut longgar</td>
+                                    <td>Stage 5</td>
+                                    <td>Stage 13</td>
+                                    <td>Shift 1</td>
+                                    <td>Group A</td>
+                                    <td><span class="status-badge error">OPEN</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="tag">NIK-014</span></td>
+                                    <td>Kabel Terjepit</td>
+                                    <td>Stage 3</td>
+                                    <td>Stage 8</td>
+                                    <td>Shift 1</td>
+                                    <td>Group A</td>
+                                    <td><span class="status-badge error">OPEN</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="tag">NIK-042</span></td>
+                                    <td>Label Miring</td>
+                                    <td>Stage 5</td>
+                                    <td>Stage 13</td>
+                                    <td>Shift 1</td>
+                                    <td>Group A</td>
+                                    <td><span class="status-badge success">CLOSED</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="tag">NIK-089</span></td>
+                                    <td>Torsi Kurang</td>
+                                    <td>Stage 10</td>
+                                    <td>Stage 15</td>
+                                    <td>Shift 2</td>
+                                    <td>Group B</td>
+                                    <td><span class="status-badge error">OPEN</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ============================================================
+                 VIEW: INSPECTION
+                 ============================================================ -->
+            <div id="view-inspection" class="view-section">
+
+                <!-- COMPACT INSPECTION PANEL — fits on one screen -->
+                <div class="glass-panel" style="padding: 14px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <!-- Left: Station Info -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 10px; background: var(--accent-cyan-glow); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--accent-cyan); flex-shrink: 0;">
+                            <i class="fa-solid fa-clipboard-check"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 14px; font-weight: 700;">Inspection Station</div>
+                            <div style="display: flex; gap: 4px;">
+                                <span class="badge badge-cyan" id="ins-badge-pos" style="font-size: 10px; padding: 2px 8px;">Stage 13</span>
+                                <span class="badge badge-pos" id="ins-badge-shift" style="font-size: 10px; padding: 2px 8px;">Shift 1</span>
+                                <span class="badge" id="ins-badge-group" style="font-size: 10px; padding: 2px 8px;">Group A</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right: Compact Cycle Timer -->
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 8px 14px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-stopwatch"></i> Cycle</div>
+                            <div class="timer-display stopped" id="ins-timer-display" style="font-size: 22px; padding: 0; line-height: 1.2;">00:00:00</div>
+                        </div>
+                        <div style="width: 80px;">
+                            <div class="takt-bar" style="height: 6px; border-radius: 3px;">
+                                <div class="takt-fill" id="ins-takt-fill" style="width: 0%;"></div>
+                            </div>
+                            <div style="font-size: 9px; color: var(--text-muted); font-weight: 600; text-align: center; margin-top: 2px;" id="ins-takt-label">0 / 180s</div>
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn-primary" id="btn-ins-timer-pause" style="width: auto; padding: 4px 10px; font-size: 10px; background: var(--gradient-amber); display: none;">
+                                <i class="fa-solid fa-pause"></i>
+                            </button>
+                            <button class="btn-primary success" id="btn-ins-timer-resume" style="width: auto; padding: 4px 10px; font-size: 10px; display: none;">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROW: Variant + NIK (side by side) -->
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div class="glass-panel" style="padding: 10px 14px;">
+                        <label style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; display: block; margin-bottom: 4px;">
+                            <i class="fa-solid fa-car-side" style="margin-right: 4px; color: var(--accent-cyan);"></i> Variant
+                        </label>
+                        <select id="select-variant" style="font-size: 13px; padding: 8px 10px; cursor: pointer;">
+                            <option value="">-- Pilih --</option>
+                            <option value="N-Series X">N-Series X</option>
+                            <option value="N-Series Y">N-Series Y</option>
+                        </select>
+                    </div>
+                    <div class="glass-panel" style="padding: 10px 14px;" id="section-scan-nik">
+                        <label style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; display: block; margin-bottom: 4px;">
+                            <i class="fa-solid fa-barcode" style="margin-right: 4px; color: var(--accent-cyan);"></i> Scan Unit NIK
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="nik-input" placeholder="Scan NIK — timer starts" style="font-size: 14px; padding: 8px 10px;" disabled>
+                            <button id="btn-scan" class="btn-primary" style="width: auto; min-width: 80px; padding: 8px 14px; font-size: 12px; opacity: 0.4; cursor: not-allowed;" disabled>
+                                <i class="fa-solid fa-qrcode"></i> Scan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INSPECTION FORM (Hidden until NIK scanned) -->
+                <div id="inspection-form-container" style="display: none;">
+
+                    <!-- Unit Summary (compact strip) -->
+                    <div class="glass-panel" style="padding: 8px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-left: 3px solid var(--accent-cyan);">
+                        <div style="display: flex; gap: 14px; align-items: center;">
+                            <div>
+                                <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">NIK</span>
+                                <div style="font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" id="display-nik">-</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Variant</span>
+                                <div style="font-size: 12px; font-weight: 600;" id="display-variant">-</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">POS</span>
+                                <div style="font-size: 12px; font-weight: 600;" id="display-pos">-</div>
+                            </div>
+                        </div>
+                        <span class="status-badge success" id="scan-progress-badge" style="font-size: 10px; padding: 3px 10px;">0 / 0</span>
+                    </div>
+
+                    <!-- Component Scan Inputs (compact list generated by JS) -->
+                    <div id="component-scan-list" style="max-height: calc(100vh - 420px); overflow-y: auto;"></div>
+
+                    <!-- Defect Note + Actions (inline row) -->
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 8px;">
+                        <div class="glass-panel" style="padding: 10px 14px;" id="defect-note-section">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <i class="fa-solid fa-bug" style="color: var(--accent-red); font-size: 12px;"></i>
+                                <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Defect Note <span style="font-weight: 400; color: var(--text-muted); text-transform: none;">(optional)</span></span>
+                                <button class="btn-ghost" id="btn-add-defect-note" style="width: auto; padding: 3px 10px; font-size: 10px; margin-left: auto;"><i class="fa-solid fa-plus"></i> Add</button>
+                            </div>
+                            <div id="defect-notes-container">
+                                <div class="defect-note-row" style="display: flex; gap: 6px; margin-bottom: 6px; align-items: center;">
+                                    <textarea id="defect-note-1" placeholder="Describe defect..." style="flex: 1; min-height: 36px; max-height: 36px; font-size: 12px; padding: 8px 10px; resize: none;"></textarea>
+                                    <select id="defect-status-1" style="width: 100px; padding: 8px 10px; font-size: 11px;">
+                                        <option value="OPEN">OPEN</option>
+                                        <option value="CLOSED">CLOSED</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-panel" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; justify-content: center; min-width: 140px;">
+                            <button class="btn-primary success" id="btn-submit-inspection" style="width: 100%; padding: 10px 16px; font-size: 12px;">
+                                <i class="fa-solid fa-check-double"></i> Submit
+                            </button>
+                            <button class="btn-ghost" id="btn-cancel-inspection" style="width: 100%; padding: 6px 10px; font-size: 11px;">
+                                <i class="fa-solid fa-xmark"></i> Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ============================================================
+                 VIEW: TRACEABILITY SEARCH
+                 ============================================================ -->
+            <div id="view-traceability" class="view-section">
+                <div class="glass-panel" style="padding: 24px; margin-bottom: 16px;">
+                    <h3 style="margin-bottom: 14px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;">
+                        <i class="fa-solid fa-magnifying-glass"></i> Search Unit History
+                    </h3>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="trace-nik-input" placeholder="Enter NIK to search (e.g., NIK-2026-001)" style="font-size: 16px; padding: 14px;">
+                        <button id="btn-trace-search" class="btn-primary" style="width: auto; min-width: 140px;">
+                            <i class="fa-solid fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+
+                <div id="trace-results" style="display: none;">
+                    <!-- Unit Info -->
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+                        <div class="kpi-card glass-panel highlight-blue">
+                            <div class="kpi-icon"><i class="fa-solid fa-barcode"></i></div>
+                            <div class="kpi-data">
+                                <h3>NIK</h3>
+                                <div class="kpi-value" id="trace-nik" style="font-size: 16px;">-</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-panel highlight-violet">
+                            <div class="kpi-icon"><i class="fa-solid fa-car-side"></i></div>
+                            <div class="kpi-data">
+                                <h3>Variant</h3>
+                                <div class="kpi-value" id="trace-variant" style="font-size: 16px;">-</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-panel highlight-amber">
+                            <div class="kpi-icon"><i class="fa-solid fa-gears"></i></div>
+                            <div class="kpi-data">
+                                <h3>Engine No</h3>
+                                <div class="kpi-value" id="trace-engine" style="font-size: 16px;">-</div>
+                            </div>
+                        </div>
+                        <div class="kpi-card glass-panel" id="trace-dr-card">
+                            <div class="kpi-icon text-green"><i class="fa-solid fa-check-double"></i></div>
+                            <div class="kpi-data">
+                                <h3>Direct Run</h3>
+                                <div class="kpi-value" id="trace-direct-run" style="font-size: 16px;">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inspection History -->
+                    <div class="data-table-section glass-panel" style="margin-bottom: 16px;">
+                        <div class="section-header">
+                            <h3><i class="fa-solid fa-clock-rotate-left text-cyan"></i> Inspection History</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr><th>Timestamp</th><th>Stage</th><th>Inspector</th><th>Shift</th><th>Group</th><th>Judgment</th></tr>
+                                </thead>
+                                <tbody id="trace-inspection-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Defect History -->
+                    <div class="data-table-section glass-panel">
+                        <div class="section-header">
+                            <h3><i class="fa-solid fa-bug text-red"></i> Defect History</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr><th>Defect</th><th>Category</th><th>POS</th><th>Status</th><th>Resolved By</th><th>Resolved At</th></tr>
+                                </thead>
+                                <tbody id="trace-defect-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="trace-empty" class="empty-state glass-panel">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <p>Enter a NIK above to view unit traceability history</p>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 VIEW: DEFECT MANAGEMENT
+                 ============================================================ -->
+            <div id="view-defect" class="view-section">
+                <!-- Filter Bar -->
+                <div class="filter-bar glass-panel" style="margin-bottom: 16px;">
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="period-tabs" id="defect-status-tabs">
+                            <button class="tab-btn active" data-status="all">All</button>
+                            <button class="tab-btn" data-status="OPEN">Open</button>
+                            <button class="tab-btn" data-status="CLOSED">Closed</button>
+                        </div>
+                    </div>
+                    <div class="filter-group select-filters">
+                        <div class="filter-item">
+                            <label>Stage</label>
+                            <select id="defect-filter-stage"><option>All</option><option>Stage 5</option><option>Stage 13</option></select>
+                        </div>
+                        <div class="filter-item">
+                            <label>Shift</label>
+                            <select id="defect-filter-shift"><option>All</option><option>Shift 1</option><option>Shift 2</option></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Defect Table -->
+                <div class="data-table-section glass-panel">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-triangle-exclamation text-amber"></i> Defect List</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>NIK</th>
+                                    <th>Defect</th>
+                                    <th>Category</th>
+                                    <th>POS</th>
+                                    <th>Shift</th>
+                                    <th>Group</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="defect-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- ============================================================
+                 VIEW: EXPORT DATA
+                 ============================================================ -->
+            <div id="view-export" class="view-section">
+                <div class="glass-panel" style="padding: 24px; margin-bottom: 16px;">
+                    <h3 style="margin-bottom: 20px; font-size: 14px; font-weight: 700;">
+                        <i class="fa-solid fa-file-export text-cyan"></i> Export Production Data
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Data Type</label>
+                            <select id="export-type">
+                                <option value="inspection">Inspection Records</option>
+                                <option value="defect">Defect Records</option>
+                                <option value="cycle">Cycle Time Records</option>
+                                <option value="traceability">Traceability Data</option>
+                                <option value="kpi">KPI Summary</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Date From</label>
+                            <input type="date" id="export-from" value="2026-08-01">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Date To</label>
+                            <input type="date" id="export-to" value="2026-08-26">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-primary" id="btn-export-csv" style="width: auto;">
+                            <i class="fa-solid fa-file-csv"></i> Export CSV
+                        </button>
+                        <button class="btn-primary" id="btn-export-excel" style="width: auto; background: var(--gradient-success);">
+                            <i class="fa-solid fa-file-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="data-table-section glass-panel">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-table text-blue"></i> Data Preview</h3>
+                        <span class="badge">Sample: 5 rows</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead>
+                                <tr><th>NIK</th><th>Stage</th><th>Variant</th><th>Shift</th><th>Group</th><th>Inspector</th><th>Judgment</th><th>Date</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><span class="tag">NIK-001</span></td><td>Stage 13</td><td>N-Series X</td><td>Shift 1</td><td>Group A</td><td>INS001</td><td><span class="status-badge success">PASS</span></td><td>2026-08-26</td></tr>
+                                <tr><td><span class="tag">NIK-002</span></td><td>Stage 5</td><td>N-Series Y</td><td>Shift 1</td><td>Group A</td><td>INS001</td><td><span class="status-badge success">PASS</span></td><td>2026-08-26</td></tr>
+                                <tr><td><span class="tag">NIK-003</span></td><td>Stage 13</td><td>N-Series X</td><td>Shift 2</td><td>Group B</td><td>INS002</td><td><span class="status-badge error">FAIL</span></td><td>2026-08-26</td></tr>
+                                <tr><td><span class="tag">NIK-004</span></td><td>Stage 5</td><td>N-Series X</td><td>Shift 2</td><td>Group B</td><td>INS002</td><td><span class="status-badge success">PASS</span></td><td>2026-08-25</td></tr>
+                                <tr><td><span class="tag">NIK-005</span></td><td>Stage 13</td><td>N-Series Y</td><td>Shift 1</td><td>Group A</td><td>INS001</td><td><span class="status-badge success">PASS</span></td><td>2026-08-25</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+</body>
+</html>
