@@ -1,4 +1,54 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check session
+    const sessionUser = JSON.parse(localStorage.getItem('sessionUser'));
+    if (sessionUser) {
+        document.getElementById('login-overlay').style.display = 'none';
+        
+        if (sessionUser.role !== 'Admin') {
+            const adminLink = document.querySelector('a[href="admin.html"]');
+            if (adminLink) adminLink.style.display = 'none';
+        }
+        
+        activeUser = sessionUser.fullname;
+        activeRole = sessionUser.role;
+        activeShift = sessionUser.shift || '';
+        activeGroup = sessionUser.group || '';
+        activeStation = sessionUser.workstation || '';
+        
+        updateSystemInfo();
+        initDashboard();
+    } else {
+        // Only load dropdowns if not logged in (to save time, or do it anyway)
+        try {
+            const [shiftsRes, groupsRes, stagesRes] = await Promise.all([
+                fetch('/api/master/shifts'),
+                fetch('/api/master/groups'),
+                fetch('/api/master/stages')
+            ]);
+            
+            const shifts = await shiftsRes.json();
+            const groups = await groupsRes.json();
+            const stages = await stagesRes.json();
+            
+            const shiftSelect = document.getElementById('shift');
+            shifts.forEach(s => {
+                if (s.active) shiftSelect.insertAdjacentHTML('beforeend', `<option value="${s.name}">${s.name}</option>`);
+            });
+            
+            const groupSelect = document.getElementById('group');
+            groups.forEach(g => {
+                if (g.active) groupSelect.insertAdjacentHTML('beforeend', `<option value="${g.name}">${g.name}</option>`);
+            });
+            
+            const stageSelect = document.getElementById('login-workstation');
+            stages.forEach(s => {
+                if (s.active) stageSelect.insertAdjacentHTML('beforeend', `<option value="${s.code}">${s.name}</option>`);
+            });
+        } catch(e) {
+            console.error("Failed to load master data", e);
+        }
+    }
+
 
     // ============================================================
     // TOAST NOTIFICATION SYSTEM
@@ -30,6 +80,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginOverlay = document.getElementById('login-overlay');
     const appWrapper = document.getElementById('app-wrapper');
     const loginForm = document.getElementById('login-form');
+
+document.getElementById('username').addEventListener('blur', async (e) => {
+    const un = e.target.value.trim();
+    if (un.length > 0) {
+        try {
+            const res = await fetch(`/api/auth/check-user?username=${un}`);
+            const data = await res.json();
+            
+            const shiftEl = document.getElementById('shift');
+            const groupEl = document.getElementById('group');
+            const stationEl = document.getElementById('login-workstation');
+            
+            if (data.success && data.role === 'Admin') {
+                shiftEl.disabled = true;
+                groupEl.disabled = true;
+                stationEl.disabled = true;
+                shiftEl.value = "";
+                groupEl.value = "";
+                stationEl.value = "";
+            } else {
+                shiftEl.disabled = false;
+                groupEl.disabled = false;
+                stationEl.disabled = false;
+            }
+        } catch(err) {}
+    }
+});
+
     const logoutBtn = document.getElementById('logout-btn');
     const displayUser = document.getElementById('display-user');
     const displayShift = document.getElementById('display-shift');
@@ -38,30 +116,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeDisplay = document.getElementById('current-time');
     const pageTitleText = document.getElementById('page-title-text');
 
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
         const shift = document.getElementById('shift').value;
         const group = document.getElementById('group').value;
         const workstation = document.getElementById('login-workstation').value;
 
-        if (username && shift && group && workstation) {
-            displayUser.textContent = username.toUpperCase();
-            displayShift.textContent = shift;
-            displayGroup.textContent = group;
-            if (displayPosHeader) displayPosHeader.textContent = workstation;
-            window.activeWorkstation = workstation;
-            window.activeShift = shift;
-            window.activeGroup = group;
-            window.activeUser = username.toUpperCase();
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, shift, group, workstation })
+            });
+            const data = await res.json();
+            
+            if (!data.success) {
+                showToast('error', 'Login Failed', data.message || 'Invalid credentials');
+                return;
+            }
 
-            loginOverlay.classList.remove('active');
-            setTimeout(() => {
-                appWrapper.classList.remove('hidden');
-                initDashboard();
-            }, 400);
+            const user = data.user;
+            const context = data.context;
 
-            showToast('success', 'Login Successful', `Welcome ${username.toUpperCase()} — ${shift} / ${group}`);
+            localStorage.setItem('sessionUser', JSON.stringify({
+                fullname: user.fullname,
+                role: user.role,
+                shift: context.shift || '',
+                group: context.group || '',
+                workstation: context.workstation || ''
+            }));
+
+            if (user.role === 'Admin') {
+                window.location.href = 'admin.html';
+                return;
+            }
+
+            // For Inspectors:
+            displayUser.textContent = user.fullname.toUpperCase();
+            displayShift.textContent = context.shift;
+            displayGroup.textContent = context.group;
+            if (displayPosHeader) displayPosHeader.textContent = context.workstation;
+            
+            window.activeWorkstation = context.workstation;
+            window.activeShift = context.shift;
+            window.activeGroup = context.group;
+            window.activeUser = user.fullname.toUpperCase();
+            window.activeRole = user.role;
+
+            document.getElementById('login-overlay').style.display = 'none';
+            const adminLink = document.querySelector('a[href="admin.html"]');
+            if (adminLink) adminLink.style.display = 'none';
+            
+            appWrapper.classList.remove('hidden');
+            initDashboard();
+            loginForm.reset();
+        } catch (err) {
+            showToast('error', 'Login Error', 'Failed to connect to server');
         }
     });
 
@@ -334,22 +446,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Generate component scan inputs based on variant + stage
-    function renderComponentScanInputs(pos) {
-        let masterComps = [];
+    async function renderComponentScanInputs(pos) {
+        let stageComps = [];
         try {
-            const storedComps = localStorage.getItem('masterComponents');
-            if (storedComps) masterComps = JSON.parse(storedComps);
-        } catch(e) {}
-        if (masterComps.length === 0) {
-            masterComps = [
-                { id: 1, code: 'COMP-001', name: 'Engine Assembly', stage: 'Stage 13', active: true },
-                { id: 2, code: 'COMP-002', name: 'Battery Pack', stage: 'Stage 5', active: true },
-                { id: 3, code: 'COMP-003', name: 'Wiring Harness', stage: 'Stage 13', active: true },
-                { id: 4, code: 'COMP-004', name: 'ECU Module', stage: 'Stage 13', active: true }
-            ];
+            const response = await fetch(`/api/inspection/components?pos=${encodeURIComponent(pos)}`);
+            if (response.ok) {
+                stageComps = await response.json();
+            }
+        } catch(e) {
+            console.error('Error fetching components:', e);
         }
-
-        const stageComps = masterComps.filter(c => c.active && (c.stage === pos || pos === 'Unknown POS'));
         componentTotalCount = stageComps.length;
         componentScannedCount = 0;
         updateScanProgress();
@@ -466,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scan NIK Button — starts timer + shows component scanning area
     if (btnScan) {
-        btnScan.addEventListener('click', () => {
+        btnScan.addEventListener('click', async () => {
             if (nikInput.value.trim() !== '') {
                 const pos = window.activeWorkstation || 'Unknown POS';
                 if (displayNik) displayNik.textContent = nikInput.value.trim();
@@ -475,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Show component scanning area
                 inspectionForm.style.display = 'block';
-                renderComponentScanInputs(pos);
+                await renderComponentScanInputs(pos);
 
                 // Reset defect notes
                 defectNoteCounter = 1;
@@ -520,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnSubmitInspection) {
-        btnSubmitInspection.addEventListener('click', () => {
+        btnSubmitInspection.addEventListener('click', async () => {
             // Validate all component inputs
             const compInputs = document.querySelectorAll('#component-scan-list .comp-scan-input');
             for (let i = 0; i < compInputs.length; i++) {
@@ -546,27 +652,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         status: statusSel ? statusSel.value : 'OPEN'
                     });
                 }
-            });
-
-            // Add collected defects to the defect management list
-            if (defectsCollected.length > 0) {
-                defectsCollected.forEach(d => {
-                    const newId = `DEF-${String(defects.length + 1).padStart(3, '0')}`;
-                    defects.push({
-                        id: newId,
-                        nik: nikInput.value.trim(),
-                        desc: d.desc,
-                        category: 'Inspector Note',
-                        pos: window.activeWorkstation || '-',
-                        shift: window.activeShift || '-',
-                        group: window.activeGroup || '-',
-                        status: d.status
-                    });
-                });
-                showToast('warning', `${defectsCollected.length} Defect(s) Recorded`, `Unit ${nikInput.value.trim()} has ${defectsCollected.length} defect note(s).`);
-            } else {
-                showToast('success', 'No Defect', `Unit ${nikInput.value.trim()} — no defect found. Direct Run candidate.`);
-            }
+            });            // Prepare defects payload
+            const defectsPayload = defectsCollected.map((d, index) => ({
+                id: `DEF-${Date.now()}-${index}`,
+                nik: nikInput.value.trim(),
+                desc: d.desc,
+                category: 'Inspector Note',
+                pos: window.activeWorkstation || '-',
+                shift: window.activeShift || '-',
+                group: window.activeGroup || '-',
+                inspector: window.activeUser || '-',
+                status: d.status
+            }));
 
             // Save cycle time record
             const cycleRecord = {
@@ -583,12 +680,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: insTimerSeconds <= TAKT_TIME ? 'OK' : 'OVER',
                 date: new Date().toLocaleDateString('en-CA')
             };
-            let cycleRecords = [];
-            try { cycleRecords = JSON.parse(localStorage.getItem('cycleRecords') || '[]'); } catch(e) {}
-            cycleRecords.push(cycleRecord);
-            localStorage.setItem('cycleRecords', JSON.stringify(cycleRecords));
 
-            showToast('success', 'Inspection Submitted', `Unit ${nikInput.value.trim()} — cycle: ${insTimerSeconds}s, components: ${componentScannedCount}/${componentTotalCount}`);
+            try {
+                const response = await fetch('/api/inspection/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cycleRecord, defects: defectsPayload })
+                });
+
+                if (response.ok) {
+                    if (defectsPayload.length > 0) {
+                        showToast('warning', `${defectsPayload.length} Defect(s) Recorded`, `Unit ${nikInput.value.trim()} has ${defectsPayload.length} defect note(s).`);
+                    } else {
+                        showToast('success', 'No Defect', `Unit ${nikInput.value.trim()} — no defect found. Direct Run candidate.`);
+                    }
+                    showToast('success', 'Inspection Submitted', `Unit ${nikInput.value.trim()} — cycle: ${insTimerSeconds}s, components: ${componentScannedCount}/${componentTotalCount}`);
+                } else {
+                    const err = await response.json();
+                    showToast('error', 'Submission Failed', err.message);
+                }
+            } catch (error) {
+                console.error('Error submitting inspection:', error);
+                showToast('error', 'Submission Failed', 'Failed to submit inspection data');
+            }
 
             // Reset form
             stopInsTimerReset();
@@ -610,33 +724,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const traceEmpty = document.getElementById('trace-empty');
 
     if (btnTraceSearch) {
-        btnTraceSearch.addEventListener('click', () => {
+        btnTraceSearch.addEventListener('click', async () => {
             const nik = traceNikInput.value.trim();
             if (!nik) {
                 showToast('warning', 'Empty Input', 'Please enter a NIK to search');
                 return;
             }
 
-            // Mock Data
-            document.getElementById('trace-nik').textContent = nik;
-            document.getElementById('trace-variant').textContent = 'N-Series X';
-            document.getElementById('trace-engine').textContent = 'ENG-2026-' + nik.split('-').pop();
-            document.getElementById('trace-direct-run').textContent = 'YES';
+            try {
+                const response = await fetch(`/api/master/trace/${encodeURIComponent(nik)}`);
+                const data = await response.json();
+                
+                if (!response.ok || !data.success) {
+                    showToast('warning', 'Not Found', `No data found for NIK: ${nik}`);
+                    return;
+                }
+                
+                const { cycle, inspections, defects } = data.data;
 
-            // Mock Inspection History
-            document.getElementById('trace-inspection-tbody').innerHTML = `
-                <tr><td>2026-08-26 08:15</td><td>Stage 5</td><td>INS001</td><td>Shift 1</td><td>Group A</td><td><span class="status-badge success">PASS</span></td></tr>
-                <tr><td>2026-08-26 09:30</td><td>Stage 13</td><td>INS001</td><td>Shift 1</td><td>Group A</td><td><span class="status-badge success">PASS</span></td></tr>
-            `;
+                // Populate Header
+                document.getElementById('trace-nik').textContent = nik;
+                document.getElementById('trace-variant').textContent = cycle ? cycle.variant_code : '-';
+                document.getElementById('trace-engine').textContent = 'N/A'; // Or handle appropriately
+                document.getElementById('trace-direct-run').textContent = defects.length === 0 ? 'YES' : 'NO';
 
-            // Mock Defect History
-            document.getElementById('trace-defect-tbody').innerHTML = `
-                <tr><td>Label Miring</td><td>Cosmetic</td><td>Stage 5</td><td><span class="status-badge success">CLOSED</span></td><td>INS002</td><td>2026-08-26 08:45</td></tr>
-            `;
+                // Populate Inspection History
+                const insTbody = document.getElementById('trace-inspection-tbody');
+                insTbody.innerHTML = '';
+                inspections.forEach(ins => {
+                    const badgeClass = ins.status === 'OK' ? 'success' : 'error';
+                    insTbody.innerHTML += `
+                        <tr>
+                            <td>${new Date(ins.created_date).toLocaleString()}</td>
+                            <td>${ins.pos}</td>
+                            <td>${ins.inspector}</td>
+                            <td>${ins.shift_name}</td>
+                            <td>${ins.group_name}</td>
+                            <td><span class="status-badge ${badgeClass}">${ins.status}</span></td>
+                        </tr>
+                    `;
+                });
 
-            traceEmpty.style.display = 'none';
-            traceResults.style.display = 'block';
-            showToast('info', 'Unit Found', `Showing traceability data for ${nik}`);
+                // Populate Defect History
+                const defTbody = document.getElementById('trace-defect-tbody');
+                defTbody.innerHTML = '';
+                defects.forEach(def => {
+                    const badgeClass = def.status === 'CLOSED' ? 'success' : 'error';
+                    defTbody.innerHTML += `
+                        <tr>
+                            <td>${def.description}</td>
+                            <td>${def.category}</td>
+                            <td>${def.pos}</td>
+                            <td><span class="status-badge ${badgeClass}">${def.status}</span></td>
+                            <td>${def.inspector || '-'}</td>
+                            <td>${new Date(def.created_at).toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+
+                traceEmpty.style.display = 'none';
+                traceResults.style.display = 'block';
+                showToast('info', 'Unit Found', `Showing traceability data for ${nik}`);
+            } catch (error) {
+                console.error('Error tracing NIK:', error);
+                showToast('error', 'Error', 'Failed to fetch traceability data');
+            }
         });
 
         traceNikInput.addEventListener('keypress', (e) => {
@@ -647,52 +799,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================================
     // DEFECT MANAGEMENT
     // ============================================================
-    let defects = [
-        { id: 'DEF-001', nik: 'NIK-001', desc: 'Baut longgar', category: 'Mechanical', pos: 'Stage 5', shift: 'Shift 1', group: 'Group A', status: 'OPEN' },
-        { id: 'DEF-002', nik: 'NIK-014', desc: 'Kabel Terjepit', category: 'Electrical', pos: 'Stage 3', shift: 'Shift 1', group: 'Group A', status: 'OPEN' },
-        { id: 'DEF-003', nik: 'NIK-042', desc: 'Label Miring', category: 'Cosmetic', pos: 'Stage 5', shift: 'Shift 1', group: 'Group A', status: 'CLOSED' },
-        { id: 'DEF-004', nik: 'NIK-089', desc: 'Torsi Kurang', category: 'Mechanical', pos: 'Stage 10', shift: 'Shift 2', group: 'Group B', status: 'OPEN' },
-        { id: 'DEF-005', nik: 'NIK-023', desc: 'Seal Bocor', category: 'Quality', pos: 'Stage 13', shift: 'Shift 2', group: 'Group B', status: 'CLOSED' }
-    ];
-
-    function renderDefects(filter = 'all') {
+    async function renderDefects(filter = 'all') {
         const tbody = document.getElementById('defect-table-body');
         if (!tbody) return;
 
-        const filtered = filter === 'all' ? defects : defects.filter(d => d.status === filter);
-        tbody.innerHTML = '';
+        try {
+            const response = await fetch(`/api/defects?status=${filter}`);
+            const filtered = await response.json();
+            
+            tbody.innerHTML = '';
 
-        filtered.forEach(d => {
-            const statusBadge = d.status === 'OPEN'
-                ? '<span class="status-badge error">OPEN</span>'
-                : '<span class="status-badge success">CLOSED</span>';
+            filtered.forEach(d => {
+                const statusBadge = d.status === 'OPEN'
+                    ? '<span class="status-badge error">OPEN</span>'
+                    : '<span class="status-badge success">CLOSED</span>';
 
-            const actionBtn = d.status === 'OPEN'
-                ? `<button class="btn-primary small success" onclick="resolveDefect('${d.id}')" style="padding: 5px 12px; font-size: 11px;"><i class="fa-solid fa-wrench"></i> Resolve</button>`
-                : '<span style="color: var(--text-muted); font-size: 12px;">Resolved</span>';
+                const actionBtn = d.status === 'OPEN'
+                    ? `<button class="btn-primary small success" onclick="resolveDefect('${d.id}')" style="padding: 5px 12px; font-size: 11px;"><i class="fa-solid fa-wrench"></i> Resolve</button>`
+                    : '<span style="color: var(--text-muted); font-size: 12px;">Resolved</span>';
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><span class="tag">${d.id}</span></td>
-                <td><span class="tag">${d.nik}</span></td>
-                <td>${d.desc}</td>
-                <td>${d.category}</td>
-                <td>${d.pos}</td>
-                <td>${d.shift}</td>
-                <td>${d.group}</td>
-                <td>${statusBadge}</td>
-                <td>${actionBtn}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span class="tag">${d.id}</span></td>
+                    <td><span class="tag">${d.nik}</span></td>
+                    <td>${d.description}</td>
+                    <td>${d.category}</td>
+                    <td>${d.pos}</td>
+                    <td>${d.shift_name}</td>
+                    <td>${d.group_name}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actionBtn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch(e) {
+            console.error('Error fetching defects:', e);
+        }
     }
 
-    window.resolveDefect = function (id) {
-        const defect = defects.find(d => d.id === id);
-        if (defect) {
-            defect.status = 'CLOSED';
-            renderDefects();
-            showToast('success', 'Defect Resolved', `${id} — ${defect.desc} has been closed.`);
+    window.resolveDefect = async function (id) {
+        try {
+            const response = await fetch(`/api/defects/${id}/resolve`, { method: 'PUT' });
+            if (response.ok) {
+                const currentTab = document.querySelector('#defect-status-tabs .tab-btn.active');
+                const filter = currentTab ? currentTab.getAttribute('data-status') : 'all';
+                renderDefects(filter);
+                showToast('success', 'Defect Resolved', `${id} has been closed.`);
+            }
+        } catch(e) {
+            console.error('Error resolving defect:', e);
         }
     };
 

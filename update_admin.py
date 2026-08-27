@@ -1,108 +1,10 @@
-document.addEventListener('DOMContentLoaded', () => {
+import re
 
-    // --- Session Auth Check ---
-    const sessionUser = JSON.parse(localStorage.getItem('sessionUser'));
-    if (!sessionUser || sessionUser.role !== 'Admin') {
-        alert('Unauthorized access. Please login as Admin.');
-        window.location.href = 'index.html';
-        return;
-    }
-    document.querySelector('.user-name').textContent = sessionUser.fullname;
+with open('public/admin.js', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-
-    // ============================================================
-    // TOAST NOTIFICATION SYSTEM
-    // ============================================================
-    const toastContainer = document.getElementById('toast-container');
-
-    function showToast(type, title, message, duration = 4000) {
-        const icons = { success: 'fa-check', error: 'fa-xmark', warning: 'fa-exclamation', info: 'fa-info' };
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.innerHTML = `
-            <div class="toast-icon"><i class="fa-solid ${icons[type] || icons.info}"></i></div>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-            <button class="toast-close" onclick="this.closest('.toast').remove()"><i class="fa-solid fa-xmark"></i></button>
-        `;
-        toastContainer.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('removing');
-            setTimeout(() => toast.remove(), 300);
-        }, duration);
-    }
-
-    // ============================================================
-    // LIVE CLOCK
-    // ============================================================
-    function updateTime() {
-        const now = new Date();
-        const el = document.getElementById('admin-time');
-        if (el) el.textContent = now.toLocaleTimeString('en-US', { hour12: false });
-    }
-    setInterval(updateTime, 1000);
-    updateTime();
-
-    // ============================================================
-    // SPA NAVIGATION
-    // ============================================================
-    const navItems = document.querySelectorAll('.nav-item[data-target]');
-    const viewSections = document.querySelectorAll('.view-section');
-    const pageTitleText = document.getElementById('page-title-text');
-
-    const pageTitles = {
-        'dashboard-view': 'Quality KPI Dashboard',
-        'shift-view': 'Master Shift',
-        'group-view': 'Master Group',
-        'user-view': 'Master User',
-        'component-view': 'Master Component',
-        'stage-view': 'Master Stage',
-        'variant-view': 'Master Variant',
-        'cycletime-view': 'Cycle Time Records',
-        'traceability-view': 'Traceability Search'
-    };
-
-    navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const targetId = item.getAttribute('data-target');
-            if (!targetId) return;
-
-            navItems.forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
-
-            viewSections.forEach(section => {
-                section.classList.remove('active');
-                section.classList.add('hidden');
-            });
-
-            const target = document.getElementById(targetId);
-            if (target) {
-                target.classList.remove('hidden');
-                void target.offsetWidth;
-                target.classList.add('active');
-            }
-
-            if (pageTitleText && pageTitles[targetId]) {
-                pageTitleText.textContent = pageTitles[targetId];
-            }
-
-            if (targetId === 'dashboard-view') initAdminCharts();
-            if (targetId === 'cycletime-view') renderCycleTimeRecords();
-        });
-    });
-
-    // ============================================================
-    // ADMIN DASHBOARD CHARTS
-    // ============================================================
-    Chart.defaults.color = '#8b95b0';
-    Chart.defaults.font.family = "'Inter', sans-serif";
-
-    let dpuChartAdmin = null;
-    let drrChartAdmin = null;
-
+# 1. Update initAdminCharts
+chart_replacement = """
     async function initAdminCharts() {
         if (dpuChartAdmin) dpuChartAdmin.destroy();
         if (drrChartAdmin) drrChartAdmin.destroy();
@@ -178,49 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
             options: chartOptions(90, 100)
         });
     }
-
-    // Admin Period Tabs
-    const adminPeriodTabs = document.getElementById('admin-period-tabs');
-    if (adminPeriodTabs) {
-        adminPeriodTabs.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tab-btn')) {
-                adminPeriodTabs.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-                e.target.classList.add('active');
-                showToast('info', 'Period Changed', `Viewing ${e.target.textContent} data`);
-            }
-        });
-    }
-
-    // Init charts on load
-    initAdminCharts();
-
-    // ============================================================
-    // GENERIC MODAL HELPER
-    // ============================================================
-    function openModal(id) {
-        const modal = document.getElementById(id);
-        if (modal) modal.classList.add('active');
-    }
-
-    function closeModal(id) {
-        const modal = document.getElementById(id);
-        if (modal) modal.classList.remove('active');
-    }
-
-    function setupModalClose(modalId, closeIds) {
-        closeIds.forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) btn.addEventListener('click', () => closeModal(modalId));
-        });
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal(modalId);
-            });
-        }
-    }
+"""
+content = re.sub(r'function initAdminCharts\(\) \{.*?\n    \}', chart_replacement.strip(), content, flags=re.DOTALL)
 
 
+# 2. Replace everything from MOCK DATA STORE to end
+crud_replacement = """
     // ============================================================
     // API DATA STORE (Replaced Mock Data)
     // ============================================================
@@ -837,3 +702,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchStages();
     fetchVariants();
 });
+"""
+content = re.sub(r'    // ============================================================\n    // MOCK DATA STORE\n    // ============================================================.*', crud_replacement, content, flags=re.DOTALL)
+
+with open('public/admin.js', 'w', encoding='utf-8') as f:
+    f.write(content)
+

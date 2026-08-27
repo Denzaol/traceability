@@ -2,87 +2,182 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-const getTable = (tableName) => async (req, res) => {
+// Users
+router.get('/users', async (req, res) => {
     try {
-        const [rows] = await db.query(`SELECT * FROM ${tableName}`);
+        const [rows] = await db.query(`SELECT id, username, password, fullname, role, default_group, active FROM users`);
         res.json(rows);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-const createItem = (tableName, cols) => async (req, res) => {
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/users', async (req, res) => {
     try {
-        const data = req.body;
-        const keys = cols.join(', ');
-        const placeholders = cols.map(() => '?').join(', ');
-        const values = cols.map(c => data[c] !== undefined ? data[c] : null);
-
-        const [result] = await db.query(`INSERT INTO ${tableName} (${keys}) VALUES (${placeholders})`, values);
+        const { username, password, fullname, role, default_group, active } = req.body;
+        const [result] = await db.query(`INSERT INTO users (username, password, fullname, role, default_group, active) VALUES (?, ?, ?, ?, ?, ?)`, [username, password, fullname, role, default_group, active]);
         res.json({ success: true, id: result.insertId });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-const updateItem = (tableName, cols) => async (req, res) => {
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const data = req.body;
-        const setClause = cols.map(c => `${c} = ?`).join(', ');
-        const values = cols.map(c => data[c]);
-        values.push(id);
-
-        await db.query(`UPDATE ${tableName} SET ${setClause} WHERE id = ?`, values);
+        const { username, fullname, role, default_group, active, password } = req.body;
+        if (password) {
+            await db.query(`UPDATE users SET username=?, password=?, fullname=?, role=?, default_group=?, active=? WHERE id=?`, [username, password, fullname, role, default_group, active, id]);
+        } else {
+            await db.query(`UPDATE users SET username=?, fullname=?, role=?, default_group=?, active=? WHERE id=?`, [username, fullname, role, default_group, active, id]);
+        }
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-const deleteItem = (tableName) => async (req, res) => {
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/users/:id', async (req, res) => {
     try {
-        await db.query(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id]);
+        await db.query(`DELETE FROM users WHERE id = ?`, [req.params.id]);
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// Users
-router.get('/users', getTable('users'));
-router.post('/users', createItem('users', ['username', 'password', 'fullname', 'role', 'default_group', 'active']));
-router.put('/users/:id', updateItem('users', ['username', 'fullname', 'role', 'default_group', 'active']));
-router.delete('/users/:id', deleteItem('users'));
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 // Shifts
-router.get('/shifts', getTable('shifts'));
-router.post('/shifts', createItem('shifts', ['shift_code', 'shift_name', 'start_time', 'end_time', 'is_overnight', 'active']));
-router.put('/shifts/:id', updateItem('shifts', ['shift_code', 'shift_name', 'start_time', 'end_time', 'is_overnight', 'active']));
-router.delete('/shifts/:id', deleteItem('shifts'));
+router.get('/shifts', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT id, shift_code as code, shift_name as name, start_time as start, end_time as end, is_overnight as overnight, active FROM shifts`);
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/shifts', async (req, res) => {
+    try {
+        const { code, name, start, end, overnight, active } = req.body;
+        const [result] = await db.query(`INSERT INTO shifts (shift_code, shift_name, start_time, end_time, is_overnight, active) VALUES (?, ?, ?, ?, ?, ?)`, [code, name, start, end, overnight, active]);
+        res.json({ success: true, id: result.insertId });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/shifts/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { code, name, start, end, overnight, active } = req.body;
+        await db.query(`UPDATE shifts SET shift_code=?, shift_name=?, start_time=?, end_time=?, is_overnight=?, active=? WHERE id=?`, [code, name, start, end, overnight, active, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/shifts/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM shifts WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 // Groups
-router.get('/groups', getTable('groups_data'));
-router.post('/groups', createItem('groups_data', ['group_code', 'group_name', 'active']));
-router.put('/groups/:id', updateItem('groups_data', ['group_code', 'group_name', 'active']));
-router.delete('/groups/:id', deleteItem('groups_data'));
+router.get('/groups', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT id, group_code as code, group_name as name, active FROM groups_data`);
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/groups', async (req, res) => {
+    try {
+        const { code, name, active } = req.body;
+        const [result] = await db.query(`INSERT INTO groups_data (group_code, group_name, active) VALUES (?, ?, ?)`, [code, name, active]);
+        res.json({ success: true, id: result.insertId });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/groups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { code, name, active } = req.body;
+        await db.query(`UPDATE groups_data SET group_code=?, group_name=?, active=? WHERE id=?`, [code, name, active, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/groups/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM groups_data WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 // Stages
-router.get('/stages', getTable('stages'));
-router.post('/stages', createItem('stages', ['code', 'name', 'active']));
-router.put('/stages/:id', updateItem('stages', ['code', 'name', 'active']));
-router.delete('/stages/:id', deleteItem('stages'));
+router.get('/stages', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT id, code, name, active FROM stages`);
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/stages', async (req, res) => {
+    try {
+        const { code, name, active } = req.body;
+        const [result] = await db.query(`INSERT INTO stages (code, name, active) VALUES (?, ?, ?)`, [code, name, active]);
+        res.json({ success: true, id: result.insertId });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/stages/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { code, name, active } = req.body;
+        await db.query(`UPDATE stages SET code=?, name=?, active=? WHERE id=?`, [code, name, active, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/stages/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM stages WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 // Components
-router.get('/components', getTable('components'));
-router.post('/components', createItem('components', ['code', 'name', 'stage_code', 'active']));
-router.put('/components/:id', updateItem('components', ['code', 'name', 'stage_code', 'active']));
-router.delete('/components/:id', deleteItem('components'));
+router.get('/components', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT id, code, name, stage_code as stage, active FROM components`);
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/components', async (req, res) => {
+    try {
+        const { code, name, stage, active } = req.body;
+        const [result] = await db.query(`INSERT INTO components (code, name, stage_code, active) VALUES (?, ?, ?, ?)`, [code, name, stage, active]);
+        res.json({ success: true, id: result.insertId });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/components/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { code, name, stage, active } = req.body;
+        await db.query(`UPDATE components SET code=?, name=?, stage_code=?, active=? WHERE id=?`, [code, name, stage, active, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/components/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM components WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 // Variants
-router.get('/variants', getTable('variants'));
-router.post('/variants', createItem('variants', ['code', 'name', 'takt_time', 'active']));
-router.put('/variants/:id', updateItem('variants', ['code', 'name', 'takt_time', 'active']));
-router.delete('/variants/:id', deleteItem('variants'));
+router.get('/variants', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT id, code, name, takt_time as takt, active FROM variants`);
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.post('/variants', async (req, res) => {
+    try {
+        const { code, name, takt, active } = req.body;
+        const [result] = await db.query(`INSERT INTO variants (code, name, takt_time, active) VALUES (?, ?, ?, ?)`, [code, name, takt, active]);
+        res.json({ success: true, id: result.insertId });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.put('/variants/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { code, name, takt, active } = req.body;
+        await db.query(`UPDATE variants SET code=?, name=?, takt_time=?, active=? WHERE id=?`, [code, name, takt, active, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+router.delete('/variants/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM variants WHERE id = ?`, [req.params.id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
 
 module.exports = router;

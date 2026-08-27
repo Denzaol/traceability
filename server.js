@@ -19,7 +19,7 @@ app.use('/api/defects', require('./routes/defects'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Fallback for SPA routing (if any)
-app.get('*', (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
