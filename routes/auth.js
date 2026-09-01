@@ -78,4 +78,31 @@ router.get('/check-user', async (req, res) => {
     }
 });
 
+router.get('/test-db', async (req, res) => {
+    try {
+        const connection = await db.getConnection();
+        connection.release();
+        res.json({
+            success: true,
+            message: 'Database connection successful!',
+            config: {
+                host: process.env.DB_HOST || 'not set',
+                user: process.env.DB_USER || 'not set',
+                database: process.env.DB_NAME || 'not set'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Database connection failed',
+            error: error.message,
+            config: {
+                host: process.env.DB_HOST || 'not set',
+                user: process.env.DB_USER || 'not set',
+                database: process.env.DB_NAME || 'not set'
+            }
+        });
+    }
+});
+
 module.exports = router;

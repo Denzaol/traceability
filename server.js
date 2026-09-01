@@ -30,6 +30,21 @@ app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+    
+    // Test database connection on startup
+    try {
+        const db = require('./db');
+        const connection = await db.getConnection();
+        console.log('✅ Database connection successful!');
+        connection.release();
+    } catch (err) {
+        console.error('❌ Database connection failed on startup:');
+        console.error(`   Error Message: ${err.message}`);
+        console.error(`   Host: ${process.env.DB_HOST}`);
+        console.error(`   User: ${process.env.DB_USER}`);
+        console.error(`   Database: ${process.env.DB_NAME}`);
+        console.error('   Please check your Coolify Environment Variables.');
+    }
 });
