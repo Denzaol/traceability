@@ -17,6 +17,8 @@ app.use('/api/master', require('./routes/master'));
 app.use('/api/inspection', require('./routes/inspection'));
 app.use('/api/defects', require('./routes/defects'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/traceability', require('./routes/traceability'));
+app.use('/api/export', require('./routes/export'));
 
 // Fallback for SPA routing (if any)
 app.use((req, res) => {

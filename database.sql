@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS shifts (
     shift_name VARCHAR(50) NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
+    overtime_hours INT DEFAULT 0,
     is_overnight BOOLEAN DEFAULT FALSE,
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS cycle_records (
     end_time TIME,
     cycle_sec INT,
     pause_sec INT,
+    part_no TEXT,
     status VARCHAR(20),
     created_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

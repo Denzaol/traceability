@@ -38,22 +38,22 @@ router.delete('/users/:id', async (req, res) => {
 // Shifts
 router.get('/shifts', async (req, res) => {
     try {
-        const [rows] = await db.query(`SELECT id, shift_code as code, shift_name as name, start_time as start, end_time as end, is_overnight as overnight, active FROM shifts`);
+        const [rows] = await db.query(`SELECT id, shift_code as code, shift_name as name, start_time as start, end_time as end, overtime_hours, is_overnight as overnight, active FROM shifts`);
         res.json(rows);
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 router.post('/shifts', async (req, res) => {
     try {
-        const { code, name, start, end, overnight, active } = req.body;
-        const [result] = await db.query(`INSERT INTO shifts (shift_code, shift_name, start_time, end_time, is_overnight, active) VALUES (?, ?, ?, ?, ?, ?)`, [code, name, start, end, overnight, active]);
+        const { code, name, start, end, overtime_hours, overnight, active } = req.body;
+        const [result] = await db.query(`INSERT INTO shifts (shift_code, shift_name, start_time, end_time, overtime_hours, is_overnight, active) VALUES (?, ?, ?, ?, ?, ?, ?)`, [code, name, start, end, overtime_hours || 0, overnight, active]);
         res.json({ success: true, id: result.insertId });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 router.put('/shifts/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { code, name, start, end, overnight, active } = req.body;
-        await db.query(`UPDATE shifts SET shift_code=?, shift_name=?, start_time=?, end_time=?, is_overnight=?, active=? WHERE id=?`, [code, name, start, end, overnight, active, id]);
+        const { code, name, start, end, overtime_hours, overnight, active } = req.body;
+        await db.query(`UPDATE shifts SET shift_code=?, shift_name=?, start_time=?, end_time=?, overtime_hours=?, is_overnight=?, active=? WHERE id=?`, [code, name, start, end, overtime_hours || 0, overnight, active, id]);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
@@ -177,6 +177,38 @@ router.delete('/variants/:id', async (req, res) => {
     try {
         await db.query(`DELETE FROM variants WHERE id = ?`, [req.params.id]);
         res.json({ success: true });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+
+// Cycle Time Records (JSON for admin panel)
+router.get('/cycle-records', async (req, res) => {
+    try {
+        const { date, shift, stage } = req.query;
+        let where = '1=1';
+        let params = [];
+        if (date) { where += ' AND created_date = ?'; params.push(date); }
+        if (shift && shift !== 'all') { where += ' AND shift_name = ?'; params.push(shift); }
+        if (stage && stage !== 'all') { where += ' AND pos = ?'; params.push(stage); }
+        const [rows] = await db.query(`SELECT id, nik, variant_code as variant, pos, shift_name as shift, group_name as 'group', inspector, start_time as startTime, end_time as endTime, cycle_sec as cycleSec, pause_sec as pauseSec, part_no, status, created_date as date FROM cycle_records WHERE ${where} ORDER BY created_at DESC`, params);
+        
+        if (rows.length > 0) {
+            const ids = rows.map(r => r.id);
+            const [components] = await db.query(`SELECT cycle_id, component_name, part_no FROM cycle_components WHERE cycle_id IN (?)`, [ids]);
+            
+            rows.forEach(r => {
+                r.components = components.filter(c => c.cycle_id === r.id);
+            });
+        }
+
+        res.json(rows);
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+});
+
+// Checked NIK list (all unique NIKs that have been inspected)
+router.get('/checked-niks', async (req, res) => {
+    try {
+        const [rows] = await db.query(`SELECT nik, COUNT(*) as check_count, MAX(created_date) as last_check, GROUP_CONCAT(DISTINCT pos ORDER BY pos) as stages FROM cycle_records GROUP BY nik ORDER BY MAX(created_at) DESC`);
+        res.json(rows);
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 

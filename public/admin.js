@@ -9,8 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.querySelector('.user-name').textContent = sessionUser.fullname;
 
-
     // ============================================================
+    // LOGOUT LOGIC
+    // ============================================================
+    const logoutBtn = document.getElementById('admin-logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('sessionUser');
+            window.location.href = 'index.html';
+        });
+    }    // ============================================================
     // TOAST NOTIFICATION SYSTEM
     // ============================================================
     const toastContainer = document.getElementById('toast-container');
@@ -90,7 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (targetId === 'dashboard-view') initAdminCharts();
+            if (targetId === 'shift-view') fetchShifts();
+            if (targetId === 'group-view') fetchGroups();
+            if (targetId === 'user-view') fetchUsers();
+            if (targetId === 'component-view') fetchComponents();
+            if (targetId === 'stage-view') fetchStages();
+            if (targetId === 'variant-view') fetchVariants();
             if (targetId === 'cycletime-view') renderCycleTimeRecords();
+            if (targetId === 'wip-view') loadWIP();
+            if (targetId === 'traceability-view') {
+                setTimeout(() => document.getElementById('admin-trace-nik')?.focus(), 50);
+            }
         });
     });
 
@@ -111,13 +130,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctxDrr = document.getElementById('drrChartAdmin')?.getContext('2d');
         if (!ctxDpu || !ctxDrr) return;
 
+        const activePeriod = document.querySelector('#admin-period-tabs .tab-btn.active')?.dataset.period || 'daily';
         let kpiData = { dpuSeries: [], drrSeries: [], labels: [] };
         try {
-            const res = await fetch('/api/dashboard/kpi');
-            if (res.ok) kpiData = await res.json();
+            const res = await fetch(`/api/dashboard/kpi?period=${activePeriod}`);
+            if (res.ok) {
+                kpiData = await res.json();
+                
+                // Update Dashboard Numbers
+                if (document.getElementById('dash-unit-check')) document.getElementById('dash-unit-check').textContent = kpiData.unitCheck || 0;
+                if (document.getElementById('dash-total-defect')) document.getElementById('dash-total-defect').textContent = kpiData.totalDefect || 0;
+                if (document.getElementById('dash-dpu')) document.getElementById('dash-dpu').textContent = (kpiData.dpu || 0).toFixed(3);
+                if (document.getElementById('dash-drr')) document.getElementById('dash-drr').textContent = (kpiData.drr || 0).toFixed(1) + '%';
+                if (document.getElementById('dash-direct-run')) document.getElementById('dash-direct-run').textContent = kpiData.directRun || 0;
+                if (document.getElementById('dash-not-direct-run')) document.getElementById('dash-not-direct-run').textContent = kpiData.notDirectRun || 0;
+                if (document.getElementById('dash-open-defect')) document.getElementById('dash-open-defect').textContent = kpiData.openDefect || 0;
+                if (document.getElementById('dash-closed-defect')) document.getElementById('dash-closed-defect').textContent = kpiData.closedDefect || 0;
+                if (document.getElementById('dash-wip')) document.getElementById('dash-wip').textContent = kpiData.wipCount || 0;
+            }
         } catch (e) {
             console.error("Failed to fetch KPI data", e);
         }
+
+        // Load comparison data and exception table
+        loadDashboardComparisons(activePeriod);
+        loadDashboardExceptions();
 
         const labels = kpiData.labels && kpiData.labels.length ? kpiData.labels : ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
 
@@ -186,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('tab-btn')) {
                 adminPeriodTabs.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
                 e.target.classList.add('active');
+                initAdminCharts();
                 showToast('info', 'Period Changed', `Viewing ${e.target.textContent} data`);
             }
         });
@@ -300,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${s.name}</td>
             <td>${s.start}</td>
             <td>${s.end}</td>
+            <td>${s.overtime_hours || 0}</td>
             <td>${s.overnight ? '<span class="tag overnight">Yes</span>' : '<span style="color: var(--text-muted);">No</span>'}</td>
             <td>${statusBadge(s.active)}</td>
             <td>${actionButtons(`editShift(${s.id})`, `deleteShift(${s.id})`)}</td>
@@ -324,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name: document.getElementById('shift-name').value,
             start: document.getElementById('shift-start').value,
             end: document.getElementById('shift-end').value,
+            overtime_hours: parseInt(document.getElementById('shift-overtime').value) || 0,
             overnight: document.getElementById('shift-overnight').checked,
             active: document.getElementById('shift-active').checked
         };
@@ -349,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('shift-name').value = s.name;
         document.getElementById('shift-start').value = s.start;
         document.getElementById('shift-end').value = s.end;
+        document.getElementById('shift-overtime').value = s.overtime_hours || 0;
         document.getElementById('shift-overnight').checked = s.overnight;
         document.getElementById('shift-active').checked = s.active;
         openModal('shift-modal');
@@ -433,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><span class="tag">${u.username}</span></td>
             <td>${u.fullname}</td>
             <td><span class="badge badge-cyan">${u.role}</span></td>
-            <td>${u.defaultGroup || '<span style="color: var(--text-muted);">—</span>'}</td>
+            <td>${u.default_group || '<span style="color: var(--text-muted);">—</span>'}</td>
             <td>${statusBadge(u.active)}</td>
             <td>${actionButtons(`editUser(${u.id})`, `deleteUser(${u.id})`)}</td>
         `, 'search-user');
@@ -454,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
             password: document.getElementById('user-password').value,
             fullname: document.getElementById('user-fullname').value,
             role: document.getElementById('user-role').value,
-            defaultGroup: document.getElementById('user-defaultgroup').value,
+            default_group: document.getElementById('user-defaultgroup').value || null,
             active: document.getElementById('user-active').checked
         };
         if(!id && !data.password) { showToast('error', 'Error', 'Password required'); return; }
@@ -475,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('user-password').value = '';
         document.getElementById('user-fullname').value = u.fullname;
         document.getElementById('user-role').value = u.role;
-        document.getElementById('user-defaultgroup').value = u.defaultGroup;
+        document.getElementById('user-defaultgroup').value = u.default_group || '';
         document.getElementById('user-active').checked = u.active;
         openModal('user-modal');
     };
@@ -618,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable('variant-table-body', variants, (v) => `
             <td><span class="tag">${v.code}</span></td>
             <td>${v.name}</td>
-            <td><span class="badge badge-cyan">${v.taktTime || 180}s</span></td>
+            <td><span class="badge badge-cyan">${v.takt || 180}s</span></td>
             <td>${statusBadge(v.active)}</td>
             <td>${actionButtons(`editVariant(${v.id})`, `deleteVariant(${v.id})`)}</td>
         `, 'search-variant');
@@ -638,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = {
             code: document.getElementById('variant-code').value,
             name: document.getElementById('variant-name').value,
-            taktTime: parseInt(document.getElementById('variant-takttime').value) || 180,
+            takt: parseInt(document.getElementById('variant-takttime').value) || 180,
             active: document.getElementById('variant-active').checked
         };
         try {
@@ -656,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('variant-id').value = v.id;
         document.getElementById('variant-code').value = v.code;
         document.getElementById('variant-name').value = v.name;
-        document.getElementById('variant-takttime').value = v.taktTime || 180;
+        document.getElementById('variant-takttime').value = v.takt || 180;
         document.getElementById('variant-active').checked = v.active;
         openModal('variant-modal');
     };
@@ -670,20 +711,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ============================================================
-    // CYCLE TIME RECORDS (FETCH API)
+    // CYCLE TIME RECORDS (FETCH FROM DATABASE)
     // ============================================================
     async function renderCycleTimeRecords() {
-        let records = [];
-        try { records = JSON.parse(localStorage.getItem('cycleRecords') || '[]'); } catch(e) {}
-
         const filterDate = document.getElementById('ct-filter-date')?.value || '';
         const filterShift = document.getElementById('ct-filter-shift')?.value || 'all';
         const filterStage = document.getElementById('ct-filter-stage')?.value || 'all';
 
-        let filtered = records;
-        if (filterDate) filtered = filtered.filter(r => r.date === filterDate);
-        if (filterShift !== 'all') filtered = filtered.filter(r => r.shift === filterShift);
-        if (filterStage !== 'all') filtered = filtered.filter(r => r.pos === filterStage);
+        let params = new URLSearchParams();
+        if (filterDate) params.set('date', filterDate);
+        if (filterShift && filterShift !== 'all') params.set('shift', filterShift);
+        if (filterStage && filterStage !== 'all') params.set('stage', filterStage);
+
+        let filtered = [];
+        try {
+            filtered = await apiFetch(`/api/master/cycle-records?${params.toString()}`);
+        } catch(e) {
+            console.error('Failed to fetch cycle records:', e);
+        }
 
         const tbody = document.getElementById('cycletime-table-body');
         const emptyState = document.getElementById('ct-empty-state');
@@ -698,14 +743,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const statusBdg = r.status === 'OK'
                     ? '<span class="status-badge success">OK</span>'
                     : '<span class="status-badge error">OVER</span>';
+                const dateStr = r.date ? new Date(r.date).toLocaleDateString('en-CA') : '-';
+                
+                let componentsHtml = '-';
+                if (r.components && r.components.length > 0) {
+                    componentsHtml = r.components.map(c => `${c.component_name}: <strong>${c.part_no}</strong>`).join('<br>');
+                } else if (r.part_no && r.part_no !== '-') {
+                    componentsHtml = r.part_no;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${i + 1}</td>
-                    <td>${r.date || '-'}</td>
+                    <td>${dateStr}</td>
                     <td><span class="tag">${r.nik || '-'}</span></td>
                     <td>${r.variant || '-'}</td>
                     <td>${r.pos || '-'}</td>
                     <td>${r.inspector || '-'}</td>
+                    <td style="font-size: 11px; line-height: 1.4;">${componentsHtml}</td>
                     <td>${r.shift || '-'}</td>
                     <td>${r.group || '-'}</td>
                     <td>${r.startTime || '-'}</td>
@@ -738,18 +793,190 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ============================================================
+    // DASHBOARD COMPARISON DATA + EXCEPTION TABLE
+    // ============================================================
+    async function loadDashboardComparisons(period) {
+        // Shift Comparison
+        try {
+            const shiftsData = await apiFetch('/api/master/shifts');
+            const activeShifts = shiftsData.filter(s => s.active).slice(0, 2);
+            const shiftTbody = document.getElementById('dash-shift-comparison');
+            if (shiftTbody && activeShifts.length >= 2) {
+                const today = new Date().toISOString().split('T')[0];
+                const [kpi1, kpi2] = await Promise.all([
+                    apiFetch(`/api/dashboard/kpi?period=${period}&date=${today}&shift=${activeShifts[0].name}`).catch(() => ({})),
+                    apiFetch(`/api/dashboard/kpi?period=${period}&date=${today}&shift=${activeShifts[1].name}`).catch(() => ({}))
+                ]);
+                const thead = shiftTbody.closest('table').querySelector('thead tr');
+                if (thead) thead.innerHTML = `<th>KPI</th><th>${activeShifts[0].name}</th><th>${activeShifts[1].name}</th>`;
+                shiftTbody.innerHTML = `
+                    <tr><td>Unit Check</td><td>${kpi1.unitCheck||0}</td><td>${kpi2.unitCheck||0}</td></tr>
+                    <tr><td>Total Defect</td><td>${kpi1.totalDefect||0}</td><td>${kpi2.totalDefect||0}</td></tr>
+                    <tr><td>DPU</td><td>${Number(kpi1.dpu||0).toFixed(3)}</td><td>${Number(kpi2.dpu||0).toFixed(3)}</td></tr>
+                    <tr><td>Direct Run</td><td>${kpi1.directRun||0}</td><td>${kpi2.directRun||0}</td></tr>
+                    <tr><td>DRR</td><td style="color:var(--accent-green)">${Number(kpi1.drr||0).toFixed(1)}%</td><td style="color:var(--accent-green)">${Number(kpi2.drr||0).toFixed(1)}%</td></tr>
+                `;
+            } else if (shiftTbody) {
+                shiftTbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);padding:16px;text-align:center;">Need at least 2 active shifts</td></tr>';
+            }
+        } catch(e) { console.error('Shift comparison error:', e); }
+
+        // Group Comparison
+        try {
+            const groupsData = await apiFetch('/api/master/groups');
+            const activeGroups = groupsData.filter(g => g.active).slice(0, 2);
+            const groupTbody = document.getElementById('dash-group-comparison');
+            if (groupTbody && activeGroups.length >= 2) {
+                const today = new Date().toISOString().split('T')[0];
+                const [kpi1, kpi2] = await Promise.all([
+                    apiFetch(`/api/dashboard/kpi?period=${period}&date=${today}&group=${activeGroups[0].name}`).catch(() => ({})),
+                    apiFetch(`/api/dashboard/kpi?period=${period}&date=${today}&group=${activeGroups[1].name}`).catch(() => ({}))
+                ]);
+                const thead = groupTbody.closest('table').querySelector('thead tr');
+                if (thead) thead.innerHTML = `<th>KPI</th><th>${activeGroups[0].name}</th><th>${activeGroups[1].name}</th>`;
+                groupTbody.innerHTML = `
+                    <tr><td>Unit Check</td><td>${kpi1.unitCheck||0}</td><td>${kpi2.unitCheck||0}</td></tr>
+                    <tr><td>Total Defect</td><td>${kpi1.totalDefect||0}</td><td>${kpi2.totalDefect||0}</td></tr>
+                    <tr><td>DPU</td><td>${Number(kpi1.dpu||0).toFixed(3)}</td><td>${Number(kpi2.dpu||0).toFixed(3)}</td></tr>
+                    <tr><td>Direct Run</td><td>${kpi1.directRun||0}</td><td>${kpi2.directRun||0}</td></tr>
+                    <tr><td>DRR</td><td style="color:var(--accent-green)">${Number(kpi1.drr||0).toFixed(1)}%</td><td style="color:var(--accent-green)">${Number(kpi2.drr||0).toFixed(1)}%</td></tr>
+                `;
+            } else if (groupTbody) {
+                groupTbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted);padding:16px;text-align:center;">Need at least 2 active groups</td></tr>';
+            }
+        } catch(e) { console.error('Group comparison error:', e); }
+    }
+
+    async function loadDashboardExceptions() {
+        const tbody = document.getElementById('dash-exception-tbody');
+        if (!tbody) return;
+        try {
+            const defects = await apiFetch('/api/defects?status=OPEN');
+            tbody.innerHTML = '';
+            if (defects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:20px;text-align:center;"><i class="fa-solid fa-check-circle" style="margin-right:6px;color:var(--accent-green);"></i> No open defects</td></tr>';
+            } else {
+                defects.forEach(d => {
+                    tbody.innerHTML += `<tr>
+                        <td><span class="tag">${d.nik}</span></td>
+                        <td>${d.description||'-'}</td>
+                        <td>${d.pos||'-'}</td>
+                        <td>${d.shift_name||'-'}</td>
+                        <td>${d.group_name||'-'}</td>
+                        <td>${d.inspector||'-'}</td>
+                        <td><span class="status-badge error">OPEN</span></td>
+                    </tr>`;
+                });
+            }
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:20px;">Failed to load</td></tr>';
+        }
+    }
+
     document.getElementById('btn-filter-ct')?.addEventListener('click', () => {
         renderCycleTimeRecords();
         showToast('info', 'Filter Applied', 'Cycle time records filtered.');
     });
 
     document.getElementById('btn-export-ct')?.addEventListener('click', () => {
-        showToast('success', 'CSV Export', 'Cycle time records exported.');
+        window.location.href = '/api/export/cycle';
+        showToast('success', 'Export Started', 'Cycle time records download initiated.');
+    });
+
+    // ============================================================
+    // WIP TRACKING
+    // ============================================================
+    async function loadWIP() {
+        try {
+            const data = await apiFetch('/api/traceability/wip');
+            const tbody = document.getElementById('wip-table-body');
+            const emptyState = document.getElementById('wip-empty-state');
+            if(!tbody) return;
+
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                if(emptyState) emptyState.style.display = 'block';
+            } else {
+                if(emptyState) emptyState.style.display = 'none';
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span class="tag">${item.nik}</span></td>
+                        <td>${item.variant}</td>
+                        <td>${new Date(item.start_time).toLocaleString()}</td>
+                        <td>${item.inspector}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch (e) {
+            showToast('error', 'Error', 'Failed to load WIP data');
+        }
+    }
+
+    document.getElementById('btn-refresh-wip')?.addEventListener('click', loadWIP);
+    
+    document.getElementById('search-wip')?.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#wip-table-body tr');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(q) ? '' : 'none';
+        });
     });
 
     // ============================================================
     // ADMIN TRACEABILITY SEARCH (FETCH API)
     // ============================================================
+    const adminTraceNikInput = document.getElementById('admin-trace-nik');
+    const adminSuggestionsList = document.getElementById('admin-trace-suggestions');
+    const btnAdminTraceSearch = document.getElementById('btn-admin-trace-search');
+    let adminDebounceTimer;
+
+    if (adminTraceNikInput && adminSuggestionsList) {
+        adminTraceNikInput.addEventListener('input', (e) => {
+            clearTimeout(adminDebounceTimer);
+            const q = e.target.value.trim();
+            
+            if (q.length < 2) {
+                adminSuggestionsList.style.display = 'none';
+                return;
+            }
+
+            adminDebounceTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/traceability/suggestions?q=${encodeURIComponent(q)}`);
+                    const suggestions = await res.json();
+                    
+                    if (suggestions.length > 0) {
+                        adminSuggestionsList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
+                        adminSuggestionsList.style.display = 'block';
+                        
+                        // Click suggestion
+                        adminSuggestionsList.querySelectorAll('li').forEach(li => {
+                            li.addEventListener('click', () => {
+                                adminTraceNikInput.value = li.textContent;
+                                adminSuggestionsList.style.display = 'none';
+                                btnAdminTraceSearch?.click(); // Trigger search
+                            });
+                        });
+                    } else {
+                        adminSuggestionsList.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch suggestions:', err);
+                }
+            }, 300);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target !== adminTraceNikInput && e.target !== adminSuggestionsList) {
+                adminSuggestionsList.style.display = 'none';
+            }
+        });
+    }
     document.getElementById('btn-admin-trace-search')?.addEventListener('click', async () => {
         const nik = document.getElementById('admin-trace-nik')?.value.trim();
         if (!nik) { showToast('warning', 'Empty', 'Enter a NIK to search.'); return; }
@@ -758,57 +985,112 @@ document.addEventListener('DOMContentLoaded', () => {
         const emptyDiv = document.getElementById('admin-trace-empty');
         if (!resultsDiv) return;
 
-        let allRecords = [];
-        try { allRecords = JSON.parse(localStorage.getItem('cycleRecords') || '[]'); } catch(e) {}
-        const nikRecords = allRecords.filter(r => r.nik === nik);
+        try {
+            const res = await fetch(`/api/traceability/search/${nik}`);
+            const data = await res.json();
+            
+            if (!data.success || (data.cycleRecords.length === 0 && data.defects.length === 0)) {
+                if (emptyDiv) { emptyDiv.style.display = 'block'; emptyDiv.innerHTML = `<p style="color:var(--text-muted);padding:30px;"><i class="fa-solid fa-circle-info" style="margin-right:6px;"></i> No records found for <strong>${nik}</strong></p>`; }
+                if (resultsDiv) resultsDiv.style.display = 'none';
+                return;
+            }
 
-        let nikDefects = [];
-        try { 
-            const allDefects = await apiFetch('/api/defects');
-            nikDefects = allDefects.filter(d => d.nik === nik);
-        } catch(e) {}
+            if (emptyDiv) emptyDiv.style.display = 'none';
+            resultsDiv.style.display = 'block';
 
-        if (nikRecords.length === 0 && nikDefects.length === 0) {
-            if (emptyDiv) { emptyDiv.style.display = 'block'; emptyDiv.innerHTML = `<p style="color:var(--text-muted);padding:30px;"><i class="fa-solid fa-circle-info" style="margin-right:6px;"></i> No records found for <strong>${nik}</strong></p>`; }
-            if (resultsDiv) resultsDiv.style.display = 'none';
-            return;
+            document.getElementById('at-nik').textContent = data.nik;
+            document.getElementById('at-variant').textContent = data.variant || '-';
+            
+            const lastStage = data.cycleRecords.length > 0 ? data.cycleRecords[data.cycleRecords.length - 1].pos : '-';
+            document.getElementById('at-stage').textContent = lastStage;
+            document.getElementById('at-drr').textContent = data.defects.some(d => d.status === 'OPEN') ? 'NO' : 'YES';
+
+            const ctTbody = document.getElementById('at-cycle-tbody');
+            if (ctTbody) {
+                ctTbody.innerHTML = '';
+                data.cycleRecords.forEach(r => {
+                    const st = r.status === 'OK' ? '<span class="status-badge success">OK</span>' : '<span class="status-badge error">OVER</span>';
+                    const dateStr = new Date(r.date).toLocaleDateString();
+                    
+                    let componentsHtml = '-';
+                    if (r.components && r.components.length > 0) {
+                        componentsHtml = r.components.map(c => `${c.component_name}: <strong>${c.part_no}</strong>`).join('<br>');
+                    } else if (r.part_no && r.part_no !== '-') {
+                        componentsHtml = r.part_no;
+                    }
+
+                    ctTbody.innerHTML += `<tr><td>${dateStr}</td><td>${r.start_time||'-'}</td><td>${r.end_time||'-'}</td><td><strong>${r.cycle_sec||0}s</strong></td><td>${r.pause_sec||0}s</td><td>${r.pos||'-'}</td><td>${r.inspector||'-'}</td><td style="font-size: 11px; line-height: 1.4;">${componentsHtml}</td><td>${st}</td></tr>`;
+                });
+                if (data.cycleRecords.length === 0) ctTbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);padding:16px;">No cycle time records</td></tr>';
+            }
+
+            const dfTbody = document.getElementById('at-defect-tbody');
+            if (dfTbody) {
+                dfTbody.innerHTML = '';
+                data.defects.forEach(d => {
+                    const st = d.status === 'OPEN' ? '<span class="status-badge error">OPEN</span>' : '<span class="status-badge success">CLOSED</span>';
+                    dfTbody.innerHTML += `<tr><td>${d.description||'-'}</td><td>${d.category||'-'}</td><td>${d.stage||'-'}</td><td>${d.shift||'-'}</td><td>${st}</td></tr>`;
+                });
+                if (data.defects.length === 0) dfTbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);padding:16px;">No defects recorded</td></tr>';
+            }
+
+            showToast('info', 'Unit Found', `Showing records for ${nik}`);
+        } catch (e) {
+            showToast('error', 'Error', 'Failed to fetch traceability data');
         }
-
-        if (emptyDiv) emptyDiv.style.display = 'none';
-        resultsDiv.style.display = 'block';
-
-        const firstRec = nikRecords[0] || {};
-        document.getElementById('at-nik').textContent = nik;
-        document.getElementById('at-variant').textContent = firstRec.variant || '-';
-        document.getElementById('at-stage').textContent = firstRec.pos || '-';
-        document.getElementById('at-drr').textContent = nikDefects.some(d => d.status === 'OPEN') ? 'NO' : 'YES';
-
-        const ctTbody = document.getElementById('at-cycle-tbody');
-        if (ctTbody) {
-            ctTbody.innerHTML = '';
-            nikRecords.forEach(r => {
-                const st = r.status === 'OK' ? '<span class="status-badge success">OK</span>' : '<span class="status-badge error">OVER</span>';
-                ctTbody.innerHTML += `<tr><td>${r.date||'-'}</td><td>${r.startTime||'-'}</td><td>${r.endTime||'-'}</td><td><strong>${r.cycleSec||0}s</strong></td><td>${r.pauseSec||0}s</td><td>${r.inspector||'-'}</td><td>${st}</td></tr>`;
-            });
-            if (nikRecords.length === 0) ctTbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:16px;">No cycle time records</td></tr>';
-        }
-
-        const dfTbody = document.getElementById('at-defect-tbody');
-        if (dfTbody) {
-            dfTbody.innerHTML = '';
-            nikDefects.forEach(d => {
-                const st = d.status === 'OPEN' ? '<span class="status-badge error">OPEN</span>' : '<span class="status-badge success">CLOSED</span>';
-                dfTbody.innerHTML += `<tr><td>${d.description||'-'}</td><td>${d.category||'-'}</td><td>${d.stage||'-'}</td><td>${d.shift||'-'}</td><td>${st}</td></tr>`;
-            });
-            if (nikDefects.length === 0) dfTbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);padding:16px;">No defects recorded</td></tr>';
-        }
-
-        showToast('info', 'Unit Found', `Showing records for ${nik}`);
     });
 
-    document.getElementById('admin-trace-nik')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-admin-trace-search')?.click(); }
-    });
+    const adminTraceNikInput = document.getElementById('admin-trace-nik');
+    const adminTraceSuggestions = document.getElementById('admin-trace-suggestions');
+    const btnAdminTraceSearch = document.getElementById('btn-admin-trace-search');
+    let adminTraceDebounce;
+
+    if (adminTraceNikInput && adminTraceSuggestions) {
+        adminTraceNikInput.addEventListener('input', (e) => {
+            clearTimeout(adminTraceDebounce);
+            const q = e.target.value.trim();
+            
+            if (q.length < 2) {
+                adminTraceSuggestions.style.display = 'none';
+                return;
+            }
+
+            adminTraceDebounce = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/traceability/suggestions?q=${encodeURIComponent(q)}`);
+                    const suggestions = await res.json();
+                    
+                    if (suggestions.length > 0) {
+                        adminTraceSuggestions.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
+                        adminTraceSuggestions.style.display = 'block';
+                        
+                        // Click suggestion
+                        adminTraceSuggestions.querySelectorAll('li').forEach(li => {
+                            li.addEventListener('click', () => {
+                                adminTraceNikInput.value = li.textContent;
+                                adminTraceSuggestions.style.display = 'none';
+                                if (btnAdminTraceSearch) btnAdminTraceSearch.click();
+                            });
+                        });
+                    } else {
+                        adminTraceSuggestions.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch suggestions:', err);
+                }
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target !== adminTraceNikInput && e.target !== adminTraceSuggestions) {
+                adminTraceSuggestions.style.display = 'none';
+            }
+        });
+
+        adminTraceNikInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); if (btnAdminTraceSearch) btnAdminTraceSearch.click(); }
+        });
+    }
 
     // ============================================================
     // SEARCH LISTENERS

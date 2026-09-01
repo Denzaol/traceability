@@ -48,9 +48,10 @@
                 <a href="#" class="nav-item" data-target="stage-view"><i class="fa-solid fa-layer-group"></i> Master Stage</a>
                 <a href="#" class="nav-item" data-target="variant-view"><i class="fa-solid fa-car-side"></i> Master Variant</a>
                 <a href="#" class="nav-item" data-target="cycletime-view"><i class="fa-solid fa-stopwatch"></i> Cycle Time Records</a>
+                <a href="#" class="nav-item" data-target="wip-view"><i class="fa-solid fa-bars-progress"></i> Unit Tracking (WIP)</a>
                 <a href="#" class="nav-item" data-target="traceability-view"><i class="fa-solid fa-qrcode"></i> Traceability</a>
                 <div class="nav-divider"></div>
-                <a href="index.html" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Back to App</a>
+                <a href="#" id="admin-logout-btn" class="nav-item"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out</a>
             </nav>
             <div class="sidebar-footer">
                 <div class="admin-user-info">
@@ -93,29 +94,17 @@
                     <div class="filter-group select-filters">
                         <div class="filter-item">
                             <label>Date</label>
-                            <input type="date" value="2026-08-26">
+                            <input type="date" id="admin-filter-date">
                         </div>
                         <div class="filter-item">
                             <label>Shift</label>
-                            <select><option>All</option><option>Shift 1</option><option>Shift 2</option></select>
+                            <select id="admin-filter-shift"><option value="all">All Shifts</option></select>
                         </div>
                         <div class="filter-item">
                             <label>Group</label>
-                            <select><option>All</option><option>Group A</option><option>Group B</option></select>
+                            <select id="admin-filter-group"><option value="all">All Groups</option></select>
                         </div>
-                        <div class="filter-item">
-                            <label>Stage</label>
-                            <select><option>All</option><option>Stage 5</option><option>Stage 13</option></select>
-                        </div>
-                        <div class="filter-item">
-                            <label>Variant</label>
-                            <select><option>All</option><option>N-Series X</option><option>N-Series Y</option></select>
-                        </div>
-                        <div class="filter-item">
-                            <label>Inspector</label>
-                            <select><option>All</option><option>INS001</option><option>INS002</option></select>
-                        </div>
-                        <button class="btn-primary small"><i class="fa-solid fa-filter"></i> Apply</button>
+                        <button class="btn-primary small" id="btn-admin-apply-filter"><i class="fa-solid fa-filter"></i> Apply</button>
                     </div>
                 </div>
 
@@ -123,35 +112,39 @@
                 <div class="kpi-grid mb-4">
                     <div class="kpi-card glass-panel highlight-blue">
                         <div class="kpi-icon"><i class="fa-solid fa-cubes"></i></div>
-                        <div class="kpi-data"><h3>Unit Check</h3><div class="kpi-value">1,000</div></div>
+                        <div class="kpi-data"><h3>Unit Check</h3><div class="kpi-value" id="dash-unit-check">0</div></div>
                     </div>
                     <div class="kpi-card glass-panel highlight-red">
                         <div class="kpi-icon"><i class="fa-solid fa-bug"></i></div>
-                        <div class="kpi-data"><h3>Total Defect</h3><div class="kpi-value">45</div></div>
+                        <div class="kpi-data"><h3>Total Defect</h3><div class="kpi-value" id="dash-total-defect">0</div></div>
                     </div>
                     <div class="kpi-card glass-panel highlight-amber">
                         <div class="kpi-icon"><i class="fa-solid fa-chart-pie"></i></div>
-                        <div class="kpi-data"><h3>DPU</h3><div class="kpi-value">0.045</div><span class="kpi-subtext">Defect per Unit</span></div>
+                        <div class="kpi-data"><h3>DPU</h3><div class="kpi-value" id="dash-dpu">0</div><span class="kpi-subtext">Defect per Unit</span></div>
                     </div>
                     <div class="kpi-card glass-panel highlight-green">
                         <div class="kpi-icon"><i class="fa-solid fa-bolt"></i></div>
-                        <div class="kpi-data"><h3>DRR</h3><div class="kpi-value">97.20%</div><span class="kpi-subtext">Direct Run Ratio</span></div>
+                        <div class="kpi-data"><h3>DRR</h3><div class="kpi-value" id="dash-drr">0%</div><span class="kpi-subtext">Direct Run Ratio</span></div>
                     </div>
                     <div class="kpi-card glass-panel">
                         <div class="kpi-icon text-green"><i class="fa-solid fa-check-double"></i></div>
-                        <div class="kpi-data"><h3>Direct Run</h3><div class="kpi-value">972</div><span class="kpi-subtext">Units</span></div>
+                        <div class="kpi-data"><h3>Direct Run</h3><div class="kpi-value" id="dash-direct-run">0</div><span class="kpi-subtext">Units</span></div>
                     </div>
                     <div class="kpi-card glass-panel">
                         <div class="kpi-icon text-red"><i class="fa-solid fa-xmark"></i></div>
-                        <div class="kpi-data"><h3>Not Direct Run</h3><div class="kpi-value">28</div><span class="kpi-subtext">Units passed w/ open defect</span></div>
+                        <div class="kpi-data"><h3>Not Direct Run</h3><div class="kpi-value" id="dash-not-direct-run">0</div><span class="kpi-subtext">Units passed w/ open defect</span></div>
                     </div>
                     <div class="kpi-card glass-panel">
                         <div class="kpi-icon text-amber"><i class="fa-solid fa-folder-open"></i></div>
-                        <div class="kpi-data"><h3>Open Defect</h3><div class="kpi-value">10</div><span class="kpi-subtext">Currently Active</span></div>
+                        <div class="kpi-data"><h3>Open Defect</h3><div class="kpi-value" id="dash-open-defect">0</div><span class="kpi-subtext">Currently Active</span></div>
                     </div>
                     <div class="kpi-card glass-panel">
                         <div class="kpi-icon text-blue"><i class="fa-solid fa-folder-closed"></i></div>
-                        <div class="kpi-data"><h3>Closed Defect</h3><div class="kpi-value">35</div><span class="kpi-subtext">Resolved</span></div>
+                        <div class="kpi-data"><h3>Closed Defect</h3><div class="kpi-value" id="dash-closed-defect">0</div><span class="kpi-subtext">Resolved</span></div>
+                    </div>
+                    <div class="kpi-card glass-panel highlight-violet">
+                        <div class="kpi-icon"><i class="fa-solid fa-bars-progress"></i></div>
+                        <div class="kpi-data"><h3>WIP Units</h3><div class="kpi-value" id="dash-wip">0</div><span class="kpi-subtext">In Line (Stg 5 -> 21)</span></div>
                     </div>
                 </div>
 
@@ -161,12 +154,8 @@
                         <div class="comparison-title"><i class="fa-solid fa-clock text-cyan"></i> Shift Comparison</div>
                         <table class="comparison-table">
                             <thead><tr><th>KPI</th><th>Shift 1</th><th>Shift 2</th></tr></thead>
-                            <tbody>
-                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
-                                <tr><td>Total Defect</td><td>20</td><td>25</td></tr>
-                                <tr><td>DPU</td><td>0.040</td><td>0.050</td></tr>
-                                <tr><td>Direct Run</td><td>490</td><td>482</td></tr>
-                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.0%</td><td style="color:var(--accent-amber)">96.4%</td></tr>
+                            <tbody id="dash-shift-comparison">
+                                <tr><td colspan="3" style="color:var(--text-muted);padding:16px;text-align:center;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -174,12 +163,8 @@
                         <div class="comparison-title"><i class="fa-solid fa-users text-violet"></i> Group Comparison</div>
                         <table class="comparison-table">
                             <thead><tr><th>KPI</th><th>Group A</th><th>Group B</th></tr></thead>
-                            <tbody>
-                                <tr><td>Unit Check</td><td>500</td><td>500</td></tr>
-                                <tr><td>Total Defect</td><td>21</td><td>24</td></tr>
-                                <tr><td>DPU</td><td>0.042</td><td>0.048</td></tr>
-                                <tr><td>Direct Run</td><td>491</td><td>481</td></tr>
-                                <tr><td>DRR</td><td style="color:var(--accent-green)">98.2%</td><td style="color:var(--accent-amber)">96.2%</td></tr>
+                            <tbody id="dash-group-comparison">
+                                <tr><td colspan="3" style="color:var(--text-muted);padding:16px;text-align:center;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -199,13 +184,12 @@
 
                 <!-- DIRECT RUN EXCEPTION TABLE -->
                 <div class="data-table-section glass-panel">
-                    <div class="section-header"><h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Direct Run Exception</h3></div>
+                    <div class="section-header"><h3><i class="fa-solid fa-triangle-exclamation text-red"></i> Direct Run Exception (Open Defects)</h3></div>
                     <div class="table-responsive">
                         <table class="premium-table">
-                            <thead><tr><th>NIK</th><th>Defect</th><th>POS Asal</th><th>POS Breach</th><th>Shift</th><th>Group</th><th>Status</th></tr></thead>
-                            <tbody>
-                                <tr><td><span class="tag">NIK-001</span></td><td>Baut longgar</td><td>Stage 5</td><td>Stage 13</td><td>Shift 1</td><td>Group A</td><td><span class="status-badge error">OPEN</span></td></tr>
-                                <tr><td><span class="tag">NIK-014</span></td><td>Kabel Terjepit</td><td>Stage 3</td><td>Stage 8</td><td>Shift 2</td><td>Group B</td><td><span class="status-badge error">OPEN</span></td></tr>
+                            <thead><tr><th>NIK</th><th>Defect</th><th>Stage</th><th>Shift</th><th>Group</th><th>Inspector</th><th>Status</th></tr></thead>
+                            <tbody id="dash-exception-tbody">
+                                <tr><td colspan="7" style="color:var(--text-muted);padding:20px;text-align:center;">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -226,7 +210,7 @@
                 <div class="data-table-section glass-panel">
                     <div class="table-responsive">
                         <table class="premium-table">
-                            <thead><tr><th>Code</th><th>Shift Name</th><th>Start</th><th>End</th><th>Overnight</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Code</th><th>Shift Name</th><th>Start</th><th>End</th><th>Overtime (hrs)</th><th>Overnight</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="shift-table-body"></tbody>
                         </table>
                     </div>
@@ -334,15 +318,15 @@
                     <div class="filter-group select-filters">
                         <div class="filter-item">
                             <label>Date</label>
-                            <input type="date" id="ct-filter-date" value="2026-08-26">
+                            <input type="date" id="ct-filter-date">
                         </div>
                         <div class="filter-item">
                             <label>Shift</label>
-                            <select id="ct-filter-shift"><option value="all">All Shifts</option><option value="Shift 1">Shift 1</option><option value="Shift 2">Shift 2</option></select>
+                            <select id="ct-filter-shift"><option value="all">All Shifts</option></select>
                         </div>
                         <div class="filter-item">
                             <label>Stage</label>
-                            <select id="ct-filter-stage"><option value="all">All Stages</option><option value="Stage 5">Stage 5</option><option value="Stage 13">Stage 13</option></select>
+                            <select id="ct-filter-stage"><option value="all">All Stages</option></select>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
@@ -382,6 +366,7 @@
                                     <th>Variant</th>
                                     <th>Stage</th>
                                     <th>Inspector</th>
+                                    <th>Components</th>
                                     <th>Shift</th>
                                     <th>Group</th>
                                     <th>Start</th>
@@ -401,6 +386,30 @@
                 </div>
             </section>
 
+            <!-- UNIT TRACKING (WIP) VIEW -->
+            <section id="wip-view" class="view-section hidden">
+                <div class="action-bar glass-panel mb-4">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" id="search-wip" placeholder="Search WIP NIKs...">
+                    </div>
+                    <button class="btn-ghost small" id="btn-refresh-wip"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                </div>
+                <div class="data-table-section glass-panel">
+                    <div class="section-header"><h3><i class="fa-solid fa-bars-progress text-violet"></i> Units Currently in Line</h3></div>
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead><tr><th>NIK</th><th>Variant</th><th>Entry Time (Stage 5)</th><th>Initial Inspector</th></tr></thead>
+                            <tbody id="wip-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="wip-empty-state" class="empty-state" style="display: none; padding: 40px 20px; text-align: center;">
+                        <i class="fa-solid fa-check-circle" style="font-size: 36px; color: var(--accent-green); margin-bottom: 12px;"></i>
+                        <p style="color: var(--text-muted);">No units currently in progress.</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- TRACEABILITY VIEW (Admin) -->
             <section id="traceability-view" class="view-section hidden">
                 <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 16px;">
@@ -408,7 +417,10 @@
                         <i class="fa-solid fa-magnifying-glass"></i> Search Unit Traceability
                     </h3>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="admin-trace-nik" placeholder="Enter NIK to search (e.g., NIK-2026-001)" style="font-size: 15px; padding: 13px;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="text" id="admin-trace-nik" placeholder="Enter NIK to search (e.g., NIK-2026-001)" style="font-size: 15px; padding: 13px; width: 100%;">
+                            <ul id="admin-trace-suggestions" class="suggestions-list" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 4px; padding: 0; list-style: none; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></ul>
+                        </div>
                         <button id="btn-admin-trace-search" class="btn-primary" style="width: auto; min-width: 140px;"><i class="fa-solid fa-search"></i> Search</button>
                     </div>
                 </div>
@@ -441,7 +453,7 @@
                         <div class="section-header"><h3><i class="fa-solid fa-stopwatch text-cyan"></i> Cycle Time Records</h3></div>
                         <div class="table-responsive">
                             <table class="premium-table">
-                                <thead><tr><th>Date</th><th>Start</th><th>End</th><th>Cycle (s)</th><th>Pause (s)</th><th>Inspector</th><th>Status</th></tr></thead>
+                                <thead><tr><th>Date</th><th>Start</th><th>End</th><th>Cycle (s)</th><th>Pause (s)</th><th>Stage</th><th>Inspector</th><th>Part No</th><th>Status</th></tr></thead>
                                 <tbody id="at-cycle-tbody"></tbody>
                             </table>
                         </div>
@@ -500,6 +512,11 @@
                         <span style="font-size: 11px; color: var(--text-muted); display: block;">Crosses midnight</span>
                     </div>
                     <label class="switch"><input type="checkbox" id="shift-overnight"><span class="slider round"></span></label>
+                </div>
+                <div class="form-group">
+                    <label for="shift-overtime"><i class="fa-solid fa-clock-rotate-left" style="margin-right: 4px; color: var(--accent-cyan);"></i> Overtime (Hours)</label>
+                    <input type="number" id="shift-overtime" required min="0" max="12" value="0" placeholder="e.g. 2">
+                    <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">Additional hours for this shift. Automatically updates Inspector panel.</span>
                 </div>
                 <div class="form-group toggle-group">
                     <label for="shift-active">Active Status</label>
@@ -694,6 +711,6 @@
 
 
     <!-- Custom JS -->
-    <script src="admin.js"></script>
+    <script src="admin.js?v=2"></script>
 </body>
 </html>

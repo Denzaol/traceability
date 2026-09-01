@@ -1,7 +1,25 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    // Load Variants for the Inspection dropdown
+    try {
+        const variantsRes = await fetch('/api/master/variants');
+        const variants = await variantsRes.json();
+        const selectVariant = document.getElementById('select-variant');
+        if (selectVariant) {
+            variants.forEach(v => {
+                if (v.active) selectVariant.insertAdjacentHTML('beforeend', `<option value="${v.code}">${v.name}</option>`);
+            });
+        }
+    } catch(e) {
+        console.error("Failed to load variants", e);
+    }
+
     // Check session
     const sessionUser = JSON.parse(localStorage.getItem('sessionUser'));
     if (sessionUser) {
+        if (sessionUser.role === 'Admin') {
+            window.location.href = 'admin.html';
+            return;
+        }
         document.getElementById('login-overlay').style.display = 'none';
         
         if (sessionUser.role !== 'Admin') {
@@ -15,8 +33,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeGroup = sessionUser.group || '';
         activeStation = sessionUser.workstation || '';
         
-        updateSystemInfo();
+        document.getElementById('app-wrapper').classList.remove('hidden');
+        const dUser = document.getElementById('display-user');
+        const dShift = document.getElementById('display-shift');
+        const dGroup = document.getElementById('display-group');
+        const dPos = document.getElementById('display-pos-header');
+        
+        if (dUser) dUser.textContent = activeUser.toUpperCase();
+        if (dShift) dShift.textContent = activeShift;
+        if (dGroup) dGroup.textContent = activeGroup;
+        if (dPos) dPos.textContent = activeStation;
         initDashboard();
+        pollShiftSettings(); // Start polling
     } else {
         // Only load dropdowns if not logged in (to save time, or do it anyway)
         try {
@@ -118,8 +146,8 @@ document.getElementById('username').addEventListener('blur', async (e) => {
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
         const shift = document.getElementById('shift').value;
         const group = document.getElementById('group').value;
         const workstation = document.getElementById('login-workstation').value;
@@ -171,6 +199,7 @@ document.getElementById('username').addEventListener('blur', async (e) => {
             
             appWrapper.classList.remove('hidden');
             initDashboard();
+            pollShiftSettings(); // Start polling
             loginForm.reset();
         } catch (err) {
             showToast('error', 'Login Error', 'Failed to connect to server');
@@ -179,15 +208,15 @@ document.getElementById('username').addEventListener('blur', async (e) => {
 
     logoutBtn.addEventListener('click', () => {
         if (!confirm('End current shift session?')) return;
+        localStorage.removeItem('sessionUser');
         appWrapper.classList.add('hidden');
         setTimeout(() => {
-            loginOverlay.classList.add('active');
-            loginForm.reset();
+            window.location.reload();
         }, 400);
     });
 
     // ============================================================
-    // LIVE CLOCK
+    // LIVE CLOCK & POLLING
     // ============================================================
     function updateTime() {
         const now = new Date();
@@ -195,6 +224,38 @@ document.getElementById('username').addEventListener('blur', async (e) => {
     }
     setInterval(updateTime, 1000);
     updateTime();
+
+    async function pollShiftSettings() {
+        if (!window.activeShift) return;
+        try {
+            const res = await fetch('/api/master/shifts');
+            if (res.ok) {
+                const shifts = await res.json();
+                const myShift = shifts.find(s => s.name === window.activeShift);
+                if (myShift) {
+                    const shiftEndBadge = document.getElementById('display-shift-end');
+                    if (shiftEndBadge) {
+                        shiftEndBadge.style.display = 'inline-block';
+                        let endStr = myShift.end;
+                        if (myShift.overtime_hours > 0) {
+                            // Calculate new end time
+                            const [eh, em] = myShift.end.split(':').map(Number);
+                            let newEh = eh + myShift.overtime_hours;
+                            if (newEh >= 24) newEh -= 24;
+                            endStr = `${String(newEh).padStart(2, '0')}:${String(em).padStart(2, '0')} (+${myShift.overtime_hours}h OT)`;
+                            shiftEndBadge.style.background = 'var(--gradient-red)'; // Highlight if OT
+                        } else {
+                            shiftEndBadge.style.background = 'var(--gradient-amber)';
+                        }
+                        shiftEndBadge.innerHTML = `<i class="fa-solid fa-hourglass-end"></i> Ends: ${endStr}`;
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+    // Poll every 60 seconds
+    setInterval(pollShiftSettings, 60000);
+    if(localStorage.getItem('sessionUser')) pollShiftSettings();
 
     // ============================================================
     // SPA NAVIGATION
@@ -375,9 +436,137 @@ document.getElementById('username').addEventListener('blur', async (e) => {
         });
     }
 
-    function initDashboard() {
+    async function initDashboard() {
+        // Get active period and filter values
+        const activePeriod = document.querySelector('#period-tabs .tab-btn.active')?.dataset?.period || 'daily';
+        const filterDate = document.getElementById('filter-date')?.value || new Date().toISOString().split('T')[0];
+        const filterShift = document.getElementById('filter-shift')?.value || 'all';
+        const filterGroup = document.getElementById('filter-group')?.value || 'all';
+
+        // Fetch KPI data from API
+        let kpiData = {};
+        try {
+            let params = `?period=${activePeriod}&date=${filterDate}`;
+            if (filterShift && filterShift !== 'all') params += `&shift=${filterShift}`;
+            if (filterGroup && filterGroup !== 'all') params += `&group=${filterGroup}`;
+
+            const res = await fetch(`/api/dashboard/kpi${params}`);
+            if (res.ok) kpiData = await res.json();
+        } catch(e) { console.error('Dashboard fetch error:', e); }
+
+        // Update KPI cards
+        const kpiGrid = document.getElementById('kpi-grid');
+        if (kpiGrid) {
+            const setValue = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+            // Find and update kpi-values by their data attributes or direct content
+            const kpiValues = kpiGrid.querySelectorAll('.kpi-value[data-count]');
+            // Update data-count attributes for animation
+            kpiValues.forEach(el => {
+                const label = el.closest('.kpi-card')?.querySelector('h3')?.textContent?.trim();
+                if (label === 'Unit Check') { el.setAttribute('data-count', kpiData.unitCheck || 0); }
+                else if (label === 'Total Defect') { el.setAttribute('data-count', kpiData.totalDefect || 0); }
+                else if (label === 'DPU') { el.setAttribute('data-count', kpiData.dpu || 0); el.setAttribute('data-decimal', '3'); }
+                else if (label === 'DRR') { el.setAttribute('data-count', kpiData.drr || 0); el.setAttribute('data-decimal', '1'); el.setAttribute('data-suffix', '%'); }
+                else if (label === 'Direct Run') { el.setAttribute('data-count', kpiData.directRun || 0); }
+                else if (label === 'Not Direct Run') { el.setAttribute('data-count', kpiData.notDirectRun || 0); }
+            });
+        }
+
         animateCountUp();
         initCharts();
+        loadDashboardComparisons(activePeriod, filterDate, filterShift, filterGroup);
+        loadDashboardExceptions();
+    }
+
+    async function loadDashboardComparisons(period, date, shift, group) {
+        // Shift Comparison
+        try {
+            const shiftsRes = await fetch('/api/master/shifts');
+            if (shiftsRes.ok) {
+                const shiftsData = await shiftsRes.json();
+                const activeShifts = shiftsData.filter(s => s.active).slice(0, 2);
+                const shiftTbody = document.getElementById('dash-shift-comparison');
+                if (shiftTbody && activeShifts.length >= 2) {
+                    const today = date || new Date().toISOString().split('T')[0];
+                    let baseParams = `period=${period}&date=${today}`;
+                    if (group && group !== 'all') baseParams += `&group=${group}`;
+                    const [kpi1Res, kpi2Res] = await Promise.all([
+                        fetch(`/api/dashboard/kpi?${baseParams}&shift=${activeShifts[0].name}`),
+                        fetch(`/api/dashboard/kpi?${baseParams}&shift=${activeShifts[1].name}`)
+                    ]);
+                    const kpi1 = kpi1Res.ok ? await kpi1Res.json() : {};
+                    const kpi2 = kpi2Res.ok ? await kpi2Res.json() : {};
+                    const thead = shiftTbody.closest('table').querySelector('thead tr');
+                    if (thead) thead.innerHTML = `<th>KPI</th><th>${activeShifts[0].name}</th><th>${activeShifts[1].name}</th>`;
+                    shiftTbody.innerHTML = `
+                        <tr><td>Unit Check</td><td>${kpi1.unitCheck||0}</td><td>${kpi2.unitCheck||0}</td></tr>
+                        <tr><td>Total Defect</td><td>${kpi1.totalDefect||0}</td><td>${kpi2.totalDefect||0}</td></tr>
+                        <tr><td>DPU</td><td>${Number(kpi1.dpu||0).toFixed(3)}</td><td>${Number(kpi2.dpu||0).toFixed(3)}</td></tr>
+                        <tr><td>Direct Run</td><td>${kpi1.directRun||0}</td><td>${kpi2.directRun||0}</td></tr>
+                        <tr><td>DRR</td><td style="color:var(--accent-green)">${Number(kpi1.drr||0).toFixed(1)}%</td><td style="color:var(--accent-amber)">${Number(kpi2.drr||0).toFixed(1)}%</td></tr>
+                    `;
+                }
+            }
+        } catch(e) { console.error('Shift comparison error:', e); }
+
+        // Group Comparison
+        try {
+            const groupsRes = await fetch('/api/master/groups');
+            if (groupsRes.ok) {
+                const groupsData = await groupsRes.json();
+                const activeGroups = groupsData.filter(g => g.active).slice(0, 2);
+                const groupTbody = document.getElementById('dash-group-comparison');
+                if (groupTbody && activeGroups.length >= 2) {
+                    const today = date || new Date().toISOString().split('T')[0];
+                    let baseParams = `period=${period}&date=${today}`;
+                    if (shift && shift !== 'all') baseParams += `&shift=${shift}`;
+                    const [kpi1Res, kpi2Res] = await Promise.all([
+                        fetch(`/api/dashboard/kpi?${baseParams}&group=${activeGroups[0].name}`),
+                        fetch(`/api/dashboard/kpi?${baseParams}&group=${activeGroups[1].name}`)
+                    ]);
+                    const kpi1 = kpi1Res.ok ? await kpi1Res.json() : {};
+                    const kpi2 = kpi2Res.ok ? await kpi2Res.json() : {};
+                    const thead = groupTbody.closest('table').querySelector('thead tr');
+                    if (thead) thead.innerHTML = `<th>KPI</th><th>${activeGroups[0].name}</th><th>${activeGroups[1].name}</th>`;
+                    groupTbody.innerHTML = `
+                        <tr><td>Unit Check</td><td>${kpi1.unitCheck||0}</td><td>${kpi2.unitCheck||0}</td></tr>
+                        <tr><td>Total Defect</td><td>${kpi1.totalDefect||0}</td><td>${kpi2.totalDefect||0}</td></tr>
+                        <tr><td>DPU</td><td>${Number(kpi1.dpu||0).toFixed(3)}</td><td>${Number(kpi2.dpu||0).toFixed(3)}</td></tr>
+                        <tr><td>Direct Run</td><td>${kpi1.directRun||0}</td><td>${kpi2.directRun||0}</td></tr>
+                        <tr><td>DRR</td><td style="color:var(--accent-green)">${Number(kpi1.drr||0).toFixed(1)}%</td><td style="color:var(--accent-amber)">${Number(kpi2.drr||0).toFixed(1)}%</td></tr>
+                    `;
+                }
+            }
+        } catch(e) { console.error('Group comparison error:', e); }
+    }
+
+    async function loadDashboardExceptions() {
+        const tbody = document.getElementById('dash-exception-tbody');
+        if (!tbody) return;
+        try {
+            const res = await fetch('/api/defects?status=OPEN');
+            if (res.ok) {
+                const defects = await res.json();
+                tbody.innerHTML = '';
+                if (defects.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:20px;text-align:center;"><i class="fa-solid fa-check-circle" style="margin-right:6px;color:var(--accent-green);"></i> No open defects</td></tr>';
+                } else {
+                    defects.forEach(d => {
+                        tbody.innerHTML += `<tr>
+                            <td><span class="tag">${d.nik}</span></td>
+                            <td>${d.description||'-'}</td>
+                            <td>${d.pos||'-'}</td>
+                            <td>${d.shift_name||'-'}</td>
+                            <td>${d.group_name||'-'}</td>
+                            <td>${d.inspector||'-'}</td>
+                            <td><span class="status-badge error">OPEN</span></td>
+                        </tr>`;
+                    });
+                }
+            }
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:20px;">Failed to load</td></tr>';
+        }
     }
 
     // Period Tab Switching
@@ -387,8 +576,18 @@ document.getElementById('username').addEventListener('blur', async (e) => {
             if (e.target.classList.contains('tab-btn')) {
                 periodTabs.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
                 e.target.classList.add('active');
+                initDashboard(); // Re-fetch data with new period
                 showToast('info', 'Period Changed', `Viewing ${e.target.textContent} data`);
             }
+        });
+    }
+
+    // Dashboard Apply Filter Button
+    const btnApplyFilter = document.getElementById('btn-apply-filter');
+    if (btnApplyFilter) {
+        btnApplyFilter.addEventListener('click', () => {
+            initDashboard();
+            showToast('info', 'Filter Applied', 'Dashboard data updated.');
         });
     }
 
@@ -474,7 +673,7 @@ document.getElementById('username').addEventListener('blur', async (e) => {
                     <span class="comp-step-num" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;">${stepNum}</span>
                     <div style="flex: 1;">
                         <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">${comp.name} <span style="color: var(--text-muted); font-weight: 400;">(${comp.code})</span></div>
-                        <input type="text" class="comp-scan-input" id="comp-${comp.id}" data-comp-id="${comp.id}" data-index="${idx}" placeholder="Scan ${comp.name} barcode..." style="font-size: 14px; padding: 10px 14px;">
+                        <input type="text" class="comp-scan-input" id="comp-${comp.id}" data-comp-id="${comp.id}" data-comp-code="${comp.code}" data-comp-name="${comp.name}" data-index="${idx}" placeholder="Scan ${comp.name} barcode..." style="font-size: 14px; padding: 10px 14px;">
                     </div>
                     <div class="comp-check-icon" style="font-size: 18px; color: var(--text-muted);">
                         <i class="fa-regular fa-circle"></i>
@@ -629,12 +828,25 @@ document.getElementById('username').addEventListener('blur', async (e) => {
         btnSubmitInspection.addEventListener('click', async () => {
             // Validate all component inputs
             const compInputs = document.querySelectorAll('#component-scan-list .comp-scan-input');
+            let scannedParts = [];
             for (let i = 0; i < compInputs.length; i++) {
                 if (compInputs[i].value.trim() === '') {
                     showToast('warning', 'Missing Scan', `Please scan all components before submitting.`);
                     compInputs[i].focus();
                     return;
                 }
+                
+                // We need to extract the component name and code. 
+                // The structure is: input -> parent -> parent -> previousSibling text? 
+                // Wait, renderComponentScanInputs adds data-comp-id but not code/name to the input.
+                // But we can get it from the label. The label is in the previous sibling div or just sibling div.
+                // Let's modify renderComponentScanInputs later to inject data-comp-code and data-comp-name.
+                scannedParts.push({
+                    id: compInputs[i].dataset.compId,
+                    code: compInputs[i].dataset.compCode,
+                    name: compInputs[i].dataset.compName,
+                    partNo: compInputs[i].value.trim()
+                });
             }
 
             // Stop timer if still running
@@ -678,14 +890,15 @@ document.getElementById('username').addEventListener('blur', async (e) => {
                 cycleSec: insTimerSeconds,
                 pauseSec: insPauseDuration,
                 status: insTimerSeconds <= TAKT_TIME ? 'OK' : 'OVER',
-                date: new Date().toLocaleDateString('en-CA')
+                date: new Date().toLocaleDateString('en-CA'),
+                partNo: '-' // kept for legacy
             };
 
             try {
                 const response = await fetch('/api/inspection/submit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cycleRecord, defects: defectsPayload })
+                    body: JSON.stringify({ cycleRecord, defects: defectsPayload, components: scannedParts })
                 });
 
                 if (response.ok) {
@@ -724,6 +937,54 @@ document.getElementById('username').addEventListener('blur', async (e) => {
     const traceEmpty = document.getElementById('trace-empty');
 
     if (btnTraceSearch) {
+        // Autocomplete functionality
+        let debounceTimer;
+        const suggestionsList = document.getElementById('trace-suggestions');
+        
+        if (traceNikInput && suggestionsList) {
+            traceNikInput.addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                const q = e.target.value.trim();
+                
+                if (q.length < 2) {
+                    suggestionsList.style.display = 'none';
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`/api/traceability/suggestions?q=${encodeURIComponent(q)}`);
+                        const suggestions = await res.json();
+                        
+                        if (suggestions.length > 0) {
+                            suggestionsList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
+                            suggestionsList.style.display = 'block';
+                            
+                            // Click suggestion
+                            suggestionsList.querySelectorAll('li').forEach(li => {
+                                li.addEventListener('click', () => {
+                                    traceNikInput.value = li.textContent;
+                                    suggestionsList.style.display = 'none';
+                                    btnTraceSearch.click(); // Trigger search
+                                });
+                            });
+                        } else {
+                            suggestionsList.style.display = 'none';
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch suggestions:', err);
+                    }
+                }, 300);
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (e.target !== traceNikInput && e.target !== suggestionsList) {
+                    suggestionsList.style.display = 'none';
+                }
+            });
+        }
+
         btnTraceSearch.addEventListener('click', async () => {
             const nik = traceNikInput.value.trim();
             if (!nik) {
@@ -732,55 +993,69 @@ document.getElementById('username').addEventListener('blur', async (e) => {
             }
 
             try {
-                const response = await fetch(`/api/master/trace/${encodeURIComponent(nik)}`);
+                const response = await fetch(`/api/traceability/search/${encodeURIComponent(nik)}`);
                 const data = await response.json();
                 
-                if (!response.ok || !data.success) {
+                if (!response.ok || !data.success || (data.cycleRecords.length === 0 && data.defects.length === 0)) {
                     showToast('warning', 'Not Found', `No data found for NIK: ${nik}`);
                     return;
                 }
-                
-                const { cycle, inspections, defects } = data.data;
 
                 // Populate Header
-                document.getElementById('trace-nik').textContent = nik;
-                document.getElementById('trace-variant').textContent = cycle ? cycle.variant_code : '-';
-                document.getElementById('trace-engine').textContent = 'N/A'; // Or handle appropriately
-                document.getElementById('trace-direct-run').textContent = defects.length === 0 ? 'YES' : 'NO';
+                document.getElementById('trace-nik').textContent = data.nik;
+                document.getElementById('trace-variant').textContent = data.variant || '-';
+                document.getElementById('trace-engine').textContent = 'N/A';
+                document.getElementById('trace-direct-run').textContent = data.defects.length === 0 ? 'YES' : 'NO';
 
                 // Populate Inspection History
                 const insTbody = document.getElementById('trace-inspection-tbody');
                 insTbody.innerHTML = '';
-                inspections.forEach(ins => {
+                data.cycleRecords.forEach(ins => {
                     const badgeClass = ins.status === 'OK' ? 'success' : 'error';
+                    const dateStr = ins.date ? new Date(ins.date).toLocaleDateString() : '-';
+                    
+                    let componentsHtml = '-';
+                    if (ins.components && ins.components.length > 0) {
+                        componentsHtml = ins.components.map(c => `${c.component_name}: <strong>${c.part_no}</strong>`).join('<br>');
+                    } else if (ins.part_no && ins.part_no !== '-') {
+                        componentsHtml = ins.part_no;
+                    }
+
                     insTbody.innerHTML += `
                         <tr>
-                            <td>${new Date(ins.created_date).toLocaleString()}</td>
-                            <td>${ins.pos}</td>
-                            <td>${ins.inspector}</td>
-                            <td>${ins.shift_name}</td>
-                            <td>${ins.group_name}</td>
+                            <td>${dateStr}</td>
+                            <td>${ins.pos || '-'}</td>
+                            <td>${ins.inspector || '-'}</td>
+                            <td>${ins.shift || '-'}</td>
+                            <td>${ins.group_name || '-'}</td>
+                            <td style="font-size: 11px; line-height: 1.4;">${componentsHtml}</td>
                             <td><span class="status-badge ${badgeClass}">${ins.status}</span></td>
                         </tr>
                     `;
                 });
+                if (data.cycleRecords.length === 0) {
+                    insTbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);padding:16px;">No inspection records</td></tr>';
+                }
 
                 // Populate Defect History
                 const defTbody = document.getElementById('trace-defect-tbody');
                 defTbody.innerHTML = '';
-                defects.forEach(def => {
+                data.defects.forEach(def => {
                     const badgeClass = def.status === 'CLOSED' ? 'success' : 'error';
                     defTbody.innerHTML += `
                         <tr>
-                            <td>${def.description}</td>
-                            <td>${def.category}</td>
-                            <td>${def.pos}</td>
+                            <td>${def.description || '-'}</td>
+                            <td>${def.category || '-'}</td>
+                            <td>${def.stage || '-'}</td>
                             <td><span class="status-badge ${badgeClass}">${def.status}</span></td>
-                            <td>${def.inspector || '-'}</td>
-                            <td>${new Date(def.created_at).toLocaleString()}</td>
+                            <td>-</td>
+                            <td>${def.resolved_at ? new Date(def.resolved_at).toLocaleString() : '-'}</td>
                         </tr>
                     `;
                 });
+                if (data.defects.length === 0) {
+                    defTbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);padding:16px;">No defects recorded</td></tr>';
+                }
 
                 traceEmpty.style.display = 'none';
                 traceResults.style.display = 'block';
@@ -993,26 +1268,29 @@ document.getElementById('username').addEventListener('blur', async (e) => {
 
     if (btnExportCsv) {
         btnExportCsv.addEventListener('click', () => {
-            const type = document.getElementById('export-type').value;
-            showToast('success', 'CSV Export', `${type} data exported as CSV successfully.`);
+            const type = document.getElementById('export-type')?.value || 'cycle';
+            const url = type === 'defects' ? '/api/export/defects' : '/api/export/cycle';
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = type === 'defects' ? 'defects_export.csv' : 'cycle_records_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('success', 'CSV Export', `${type} data download started.`);
         });
     }
 
     if (btnExportExcel) {
         btnExportExcel.addEventListener('click', () => {
-            const type = document.getElementById('export-type').value;
-            showToast('success', 'Excel Export', `${type} data exported as Excel successfully.`);
-        });
-    }
-
-    // ============================================================
-    // FILTER APPLY
-    // ============================================================
-    const btnApplyFilter = document.getElementById('btn-apply-filter');
-    if (btnApplyFilter) {
-        btnApplyFilter.addEventListener('click', () => {
-            showToast('info', 'Filter Applied', 'Dashboard data has been refreshed with selected filters.');
-            animateCountUp();
+            const type = document.getElementById('export-type')?.value || 'cycle';
+            const url = type === 'defects' ? '/api/export/defects' : '/api/export/cycle';
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = type === 'defects' ? 'defects_export.csv' : 'cycle_records_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('success', 'Excel Export', `${type} data download started (CSV format, opens in Excel).`);
         });
     }
 

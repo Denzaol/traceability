@@ -26,19 +26,32 @@ router.post('/submit', async (req, res) => {
     const conn = await db.getConnection();
     try {
         await conn.beginTransaction();
-        const { cycleRecord, defects } = req.body;
+        const { cycleRecord, defects, components } = req.body;
 
         // Insert cycle record
         const [cycleRes] = await conn.query(
             `INSERT INTO cycle_records 
-            (nik, variant_code, pos, shift_name, group_name, inspector, start_time, end_time, cycle_sec, pause_sec, status, created_date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (nik, variant_code, pos, shift_name, group_name, inspector, start_time, end_time, cycle_sec, pause_sec, status, created_date, part_no) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 cycleRecord.nik, cycleRecord.variant, cycleRecord.pos, cycleRecord.shift, cycleRecord.group, 
                 cycleRecord.inspector, cycleRecord.startTime, cycleRecord.endTime, cycleRecord.cycleSec, 
-                cycleRecord.pauseSec, cycleRecord.status, cycleRecord.date
+                cycleRecord.pauseSec, cycleRecord.status, cycleRecord.date, cycleRecord.partNo || null
             ]
         );
+        const cycleId = cycleRes.insertId;
+
+        // Insert cycle components if any
+        if (components && components.length > 0) {
+            const compValues = components.map(c => [
+                cycleId, cycleRecord.nik, c.code, c.name, c.partNo
+            ]);
+            
+            await conn.query(
+                `INSERT INTO cycle_components (cycle_id, nik, component_code, component_name, part_no) VALUES ?`,
+                [compValues]
+            );
+        }
 
         // Insert defects if any
         if (defects && defects.length > 0) {
