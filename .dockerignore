@@ -1,4 +1,10 @@
+node_modules
+npm-debug.log
 .git
-prd.md
+.gitignore
+.env
 Dockerfile
 .dockerignore
+update_*.py
+database.sql
+prd.md
