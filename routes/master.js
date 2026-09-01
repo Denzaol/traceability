@@ -5,8 +5,17 @@ const db = require('../db');
 // Users
 router.get('/users', async (req, res) => {
     try {
-        const [rows] = await db.query(`SELECT id, username, password, fullname, role, default_group, active FROM users`);
-        res.json(rows);
+        const [rows] = await db.query(`SELECT * FROM users`);
+        const mapped = rows.map(u => ({
+            id: u.id,
+            username: u.username,
+            password: u.password,
+            fullname: u.full_name || u.fullname || u.username,
+            role: String(u.role).toLowerCase() === 'admin' ? 'Admin' : 'Inspector',
+            default_group: u.default_group || '',
+            active: u.is_active !== undefined ? u.is_active : (u.active !== undefined ? u.active : 1)
+        }));
+        res.json(mapped);
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 });
 router.post('/users', async (req, res) => {
