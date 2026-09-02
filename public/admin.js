@@ -1040,58 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const adminTraceNikInput = document.getElementById('admin-trace-nik');
-    const adminTraceSuggestions = document.getElementById('admin-trace-suggestions');
-    const btnAdminTraceSearch = document.getElementById('btn-admin-trace-search');
-    let adminTraceDebounce;
-
-    if (adminTraceNikInput && adminTraceSuggestions) {
-        adminTraceNikInput.addEventListener('input', (e) => {
-            clearTimeout(adminTraceDebounce);
-            const q = e.target.value.trim();
-            
-            if (q.length < 2) {
-                adminTraceSuggestions.style.display = 'none';
-                return;
-            }
-
-            adminTraceDebounce = setTimeout(async () => {
-                try {
-                    const res = await fetch(`/api/traceability/suggestions?q=${encodeURIComponent(q)}`);
-                    const suggestions = await res.json();
-                    
-                    if (suggestions.length > 0) {
-                        adminTraceSuggestions.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
-                        adminTraceSuggestions.style.display = 'block';
-                        
-                        // Click suggestion
-                        adminTraceSuggestions.querySelectorAll('li').forEach(li => {
-                            li.addEventListener('click', () => {
-                                adminTraceNikInput.value = li.textContent;
-                                adminTraceSuggestions.style.display = 'none';
-                                if (btnAdminTraceSearch) btnAdminTraceSearch.click();
-                            });
-                        });
-                    } else {
-                        adminTraceSuggestions.style.display = 'none';
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch suggestions:', err);
-                }
-            }, 300);
-        });
-
-        document.addEventListener('click', (e) => {
-            if (e.target !== adminTraceNikInput && e.target !== adminTraceSuggestions) {
-                adminTraceSuggestions.style.display = 'none';
-            }
-        });
-
-        adminTraceNikInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); if (btnAdminTraceSearch) btnAdminTraceSearch.click(); }
-        });
-    }
-
+   
     // ============================================================
     // SEARCH LISTENERS
     // ============================================================
